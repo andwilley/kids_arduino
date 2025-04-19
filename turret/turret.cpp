@@ -101,23 +101,23 @@ void turretSetup() {
 
   delay(100); // let sensor boot up
 
-  /*yawServo.attach(10); //attach YAW servo to pin 3*/
-  /*pitchServo.attach(11); //attach PITCH servo to pin 4*/
-  /*rollServo.attach(12); //attach ROLL servo to pin 5*/
-  /**/
-  /*// Just to know which program is running on my Arduino*/
-  /*Serial.println(F("START " __FILE__ " from " __DATE__ "\r\nUsing library
-   * version " VERSION_IRREMOTE));*/
-  /**/
-  /*// Start the receiver and if not 3. parameter specified, take LED_BUILTIN
-   * pin from the internal boards definition as default feedback LED*/
-  /*IrReceiver.begin(9, ENABLE_LED_FEEDBACK);*/
-  /**/
-  /*Serial.print(F("Ready to receive IR signals of protocols: "));*/
-  /*printActiveIRProtocols(&Serial);*/
-  /*Serial.println(F("at pin " STR(9)));*/
-  /**/
-  /*homeServos();*/
+  yawServo.attach(10);   // attach YAW servo to pin 3
+  pitchServo.attach(11); // attach PITCH servo to pin 4
+  rollServo.attach(12);  // attach ROLL servo to pin 5
+
+  // Just to know which program is running on my Arduino
+  Serial.println(F("START " __FILE__ " from " __DATE__
+                   "\r\nUsing library version " VERSION_IRREMOTE));
+
+  // Start the receiver and if not 3. parameter specified, take LED_BUILTIN pin
+  // from the internal boards definition as default feedback LED
+  IrReceiver.begin(9, ENABLE_LED_FEEDBACK);
+
+  Serial.print(F("Ready to receive IR signals of protocols: "));
+  printActiveIRProtocols(&Serial);
+  Serial.println(F("at pin " STR(9)));
+
+  homeServos();
 }
 
 ////////////////////////////////////////////////
@@ -391,54 +391,41 @@ void handleCommand(int command) {
   }
 }
 
-const char COLOR_0[13]  = "\033[48;5;12m";
+const char COLOR_0[13] = "\033[48;5;12m";
 const char COLOR_19[13] = "\033[48;5;12m";
 const char END[9] = "\033[0m";
 
 const char COLOR[20][13] = {
-  "\033[48;5;12m",
-  "\033[48;5;21m",
-  "\033[48;5;33m",
-  "\033[48;5;51m",
-  "\033[48;5;48m",
-  "\033[48;5;119m",
-  "\033[48;5;155m",
-  "\033[48;5;191m",
-  "\033[48;5;226m",
-  "\033[48;5;222m",
-  "\033[48;5;220m",
-  "\033[48;5;214m",
-  "\033[48;5;208m",
-  "\033[48;5;202m",
-  "\033[48;5;198m",
-  "\033[48;5;197m",
-  "\033[48;5;196m",
-  "\033[48;5;9m",
-  "\033[48;5;160",
-  "\033[48;5;124m",
+    "\033[48;5;12m",  "\033[48;5;21m",  "\033[48;5;33m",  "\033[48;5;51m",
+    "\033[48;5;48m",  "\033[48;5;119m", "\033[48;5;155m", "\033[48;5;191m",
+    "\033[48;5;226m", "\033[48;5;222m", "\033[48;5;220m", "\033[48;5;214m",
+    "\033[48;5;208m", "\033[48;5;202m", "\033[48;5;198m", "\033[48;5;197m",
+    "\033[48;5;196m", "\033[48;5;9m",   "\033[48;5;160",  "\033[48;5;124m",
 };
 const int MIN_TEMP = 15;
 
-char* getTermColor(int temp) {
-  if (temp < 15) return COLOR_0;
-  if (temp >= 35) return COLOR_19;
+char *getTermColor(int temp) {
+  if (temp < 15)
+    return COLOR_0;
+  if (temp >= 35)
+    return COLOR_19;
   int i = temp - MIN_TEMP;
   return COLOR[i];
 }
 
 void turretLoop() {
-  /*if (IrReceiver.decode()) {*/
-  /*    int command = IrReceiver.decodedIRData.command;*/
-  /*    IrReceiver.resume();*/
-  /*    handleCommand(command);*/
-  /*}*/
-  /*delay(5);*/
+  if (IrReceiver.decode()) {
+    int command = IrReceiver.decodedIRData.command;
+    IrReceiver.resume();
+    handleCommand(command);
+  }
+  delay(5);
 
   // read all the pixels
   amg.readPixels(pixels);
 
   for (int i = 1; i <= AMG88xx_PIXEL_ARRAY_SIZE; i++) {
-    int temp = pixels[i-1];
+    int temp = pixels[i - 1];
     Serial.print(getTermColor(temp));
     Serial.print(temp);
     Serial.print(END);

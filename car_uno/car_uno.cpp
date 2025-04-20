@@ -32,7 +32,8 @@ constexpr int kPwmPinA(3);
 constexpr int kBrakePinA(9);
 
 // Motor B
-constexpr int kDirectionPinB(13);
+constexpr int kBadPin(13);
+constexpr int kDirectionPinB(10);
 constexpr int kPwmPinB(11);
 constexpr int kBrakePinB(8);
 
@@ -95,11 +96,19 @@ void HandleCommand(int command) {
     return;
   case kLeft:
     Serial.println("left");
-    ChangeSpeedB(-kSpeedStep);
+    if (invert) {
+      ChangeSpeedA(-kSpeedStep);
+    } else {
+      ChangeSpeedB(-kSpeedStep);
+    }
     return;
   case kRight:
     Serial.println("right");
-    ChangeSpeedA(-kSpeedStep);
+    if (invert) {
+      ChangeSpeedB(-kSpeedStep);
+    } else {
+      ChangeSpeedA(-kSpeedStep);
+    }
     return;
   case kCmd5:
     Serial.println("5");
@@ -120,6 +129,7 @@ void setup() {
   pinMode(kPwmPinA, OUTPUT);
   pinMode(kBrakePinA, OUTPUT);
 
+  // pinMode(kBadPin, INPUT);
   pinMode(kDirectionPinB, OUTPUT);
   pinMode(kPwmPinB, OUTPUT);
   pinMode(kBrakePinB, OUTPUT);
@@ -138,8 +148,8 @@ void setup() {
 int SetSpeeds() {
   int a = invert ? -a_speed : a_speed;
   int b = invert ? -b_speed : b_speed;
-  digitalWrite(kDirectionPinA, a < 0 ? LOW : HIGH); // reverse
-  digitalWrite(kDirectionPinB, b < 0 ? LOW : HIGH); // reverse
+  digitalWrite(kDirectionPinA, a < 0 ? HIGH : LOW);
+  digitalWrite(kDirectionPinB, b < 0 ? HIGH : LOW);
   analogWrite(kPwmPinA, abs(a));
   analogWrite(kPwmPinB, abs(b));
 }

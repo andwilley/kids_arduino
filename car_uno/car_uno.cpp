@@ -1,4 +1,5 @@
 #define IR_USE_AVR_TIMER1
+
 #include "car_uno.h"
 #include <Arduino.h>
 #include <IRremote.hpp>
@@ -26,21 +27,36 @@ constexpr int kStar(0x16);
 constexpr int kHashtag(0xD);
 
 // Motor A
-constexpr int kDirectionPinA = 12;
-constexpr int kPwmPinA = 3;
-constexpr int kBrakePinA = 9;
+constexpr int kDirectionPinA(12);
+constexpr int kPwmPinA(3);
+constexpr int kBrakePinA(9);
 
 // Motor B
-constexpr int kDirectionPinB = 13;
-constexpr int kPwmPinB = 11;
-constexpr int kBrakePinB = 8;
+constexpr int kDirectionPinB(13);
+constexpr int kPwmPinB(11);
+constexpr int kBrakePinB(8);
+
+constexpr int kMaxSpeed(255);
+constexpr int kMinSpeed(-255);
+constexpr int kSpeedStep(75);
 
 namespace car {
 
-int a_speed(255);
-int b_speed(255);
+int a_speed(0);
+int b_speed(0);
+int invert(false);
 
-void handleCommand(int command) {
+int Clamp(int v, int lo, int hi) { return max(min(v, hi), lo); }
+
+void ChangeSpeedA(int step) {
+  a_speed = Clamp(a_speed + step, kMinSpeed, kMaxSpeed);
+}
+
+void ChangeSpeedB(int step) {
+  b_speed = Clamp(b_speed + step, kMinSpeed, kMaxSpeed);
+}
+
+void HandleCommand(int command) {
   if ((IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT))
     return;
   Serial.print("Got command: ");
@@ -48,24 +64,57 @@ void handleCommand(int command) {
 
   switch (command) {
   case kUp:
-    a_speed = 100;
-    b_speed = 100;
+    Serial.println("up");
+    // Match the high speed
+    if (a_speed != b_speed) {
+      int hi = max(a_speed, b_speed);
+      a_speed = hi;
+      b_speed = hi;
+      return;
+    }
+    ChangeSpeedA(kSpeedStep);
+    ChangeSpeedB(kSpeedStep);
     return;
   // fall through
   case kDown:
+    Serial.println("down");
+    // Match the low speed if mismatch
+    if (a_speed != b_speed) {
+      int lo = min(a_speed, b_speed);
+      a_speed = lo;
+      b_speed = lo;
+      return;
+    }
+    ChangeSpeedA(-kSpeedStep);
+    ChangeSpeedB(-kSpeedStep);
+    return;
+  case kOk:
+    Serial.println("down");
+    a_speed = 0;
+    b_speed = 0;
+    return;
+  case kLeft:
+    Serial.println("left");
+    ChangeSpeedB(-kSpeedStep);
+    return;
+  case kRight:
+    Serial.println("right");
+    ChangeSpeedA(-kSpeedStep);
+    return;
+  case kCmd5:
+    Serial.println("5");
+    invert = !invert;
     a_speed = 0;
     b_speed = 0;
     return;
   default:
-    Serial.println("command no recognized");
+    Serial.println("default");
     return;
   }
 }
 
 void setup() {
   Serial.begin(9600);
-
-  // printActiveIRProtocols(&Serial);
 
   pinMode(kDirectionPinA, OUTPUT);
   pinMode(kPwmPinA, OUTPUT);
@@ -77,8 +126,6 @@ void setup() {
 
   IrReceiver.begin(kIrReceivePin, ENABLE_LED_FEEDBACK);
 
-  // TODO: move this to loop and control with remote
-  // set direction
   digitalWrite(kDirectionPinA, LOW);
   digitalWrite(kDirectionPinB, LOW);
 
@@ -87,22 +134,37 @@ void setup() {
   digitalWrite(kBrakePinB, LOW);
 }
 
+// calculate output speed with direction
+int SetSpeeds() {
+  int a = invert ? -a_speed : a_speed;
+  int b = invert ? -b_speed : b_speed;
+  digitalWrite(kDirectionPinA, a < 0 ? LOW : HIGH); // reverse
+  digitalWrite(kDirectionPinB, b < 0 ? LOW : HIGH); // reverse
+  analogWrite(kPwmPinA, abs(a));
+  analogWrite(kPwmPinB, abs(b));
+}
+
+void Debug(bool on) {
+  if (on) {
+    Serial.print("invert: ");
+    Serial.println(invert);
+    Serial.print("A speed: ");
+    Serial.println(a_speed);
+    Serial.print("B speed: ");
+    Serial.println(b_speed);
+    delay(1000);
+  }
+}
+
 void loop() {
   if (IrReceiver.decode()) {
     int command = IrReceiver.decodedIRData.command;
     IrReceiver.resume();
-    handleCommand(command);
+    HandleCommand(command);
   }
 
-  // go!
-  Serial.print("A speed: ");
-  Serial.println(a_speed);
-  Serial.print("B speed: ");
-  Serial.println(b_speed);
-  analogWrite(kPwmPinA, a_speed);
-  analogWrite(kPwmPinB, b_speed);
-
-  delay(100);
+  SetSpeeds();
+  Debug(true);
 }
 
 } // namespace car

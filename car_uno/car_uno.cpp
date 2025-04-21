@@ -46,6 +46,7 @@ namespace car {
 int a_speed(0);
 int b_speed(0);
 int invert(false);
+bool debug(false);
 
 int Clamp(int v, int lo, int hi) { return max(min(v, hi), lo); }
 
@@ -58,14 +59,11 @@ void ChangeSpeedB(int step) {
 }
 
 void HandleCommand(int command) {
-  if ((IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT))
+  if ((IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT)) {
     return;
-  Serial.print("Got command: ");
-  Serial.println(command);
-
+  }
   switch (command) {
   case kUp:
-    Serial.println("up");
     // Match the high speed
     if (a_speed != b_speed) {
       int hi = max(a_speed, b_speed);
@@ -78,7 +76,6 @@ void HandleCommand(int command) {
     return;
   // fall through
   case kDown:
-    Serial.println("down");
     // Match the low speed if mismatch
     if (a_speed != b_speed) {
       int lo = min(a_speed, b_speed);
@@ -90,12 +87,10 @@ void HandleCommand(int command) {
     ChangeSpeedB(-kSpeedStep);
     return;
   case kOk:
-    Serial.println("down");
     a_speed = 0;
     b_speed = 0;
     return;
   case kLeft:
-    Serial.println("left");
     if (invert) {
       ChangeSpeedA(-kSpeedStep);
     } else {
@@ -103,7 +98,6 @@ void HandleCommand(int command) {
     }
     return;
   case kRight:
-    Serial.println("right");
     if (invert) {
       ChangeSpeedB(-kSpeedStep);
     } else {
@@ -111,13 +105,11 @@ void HandleCommand(int command) {
     }
     return;
   case kCmd5:
-    Serial.println("5");
     invert = !invert;
     a_speed = 0;
     b_speed = 0;
     return;
   default:
-    Serial.println("default");
     return;
   }
 }
@@ -154,8 +146,8 @@ int SetSpeeds() {
   analogWrite(kPwmPinB, abs(b));
 }
 
-void Debug(bool on) {
-  if (on) {
+void Debug() {
+  if (debug) {
     Serial.print("invert: ");
     Serial.println(invert);
     Serial.print("A speed: ");
@@ -174,7 +166,7 @@ void loop() {
   }
 
   SetSpeeds();
-  Debug(true);
+  Debug();
 }
 
 } // namespace car

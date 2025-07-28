@@ -9,8 +9,14 @@ void turretLoop();
 struct Point {
   float x;
   float y;
+
+  Point operator+(Point other) { return {.x = x + other.x, .y = y + other.y}; }
+
+  bool operator==(Point other) { return x == other.x && y == other.y; }
 };
 
-Point FindHeatCenter(float* temps);
+const Point kNoPoint = {.x = -1, .y = -1};
 
-#endif
+Point FindHeatCenter(float *temps);
+
+#endif // TURRET

@@ -72,9 +72,11 @@ constexpr int kPitchMin = 15;
 
 bool isTracking = false;
 
-constexpr int kGridCols = 8;
-constexpr int kGridRows = 8;
+constexpr int kGridSize = 8;
 constexpr int kNeighborSize = 8;
+constexpr float kSensorFov = 31.5;
+constexpr float kGridMidPt = (kGridSize - 1) / 2;
+constexpr float kGridToAngle = kSensorFov / kGridMidPt;
 
 // TODO: Eventually find these dynamically on startup and re-eval periodically.
 constexpr float kBackgroundTemp = 21.5;
@@ -152,16 +154,16 @@ template <typename T> T clamp(T val, T min, T max) {
   return val;
 }
 
-int Col(int index) { return index % kGridCols; }
+int Col(int index) { return index % kGridSize; }
 
-int Row(int index) { return floor(index / kGridCols); }
+int Row(int index) { return floor(index / kGridSize); }
 
 Point<int> ToPoint(int index) { return {.x = Col(index), .y = Row(index)}; }
 
-int Index(Point<int> p) { return p.x * kGridCols + p.y; }
+int Index(Point<int> p) { return p.x * kGridSize + p.y; }
 
 bool InBounds(Point<int> p) {
-  return (p.x < kGridCols && p.x >= 0) && (p.y < kGridRows && p.y >= 0);
+  return (p.x < kGridSize && p.x >= 0) && (p.y < kGridSize && p.y >= 0);
 }
 
 bool InBounds(int index) {
@@ -183,7 +185,7 @@ int *GetNeighbors(float *temps, int index) {
       // up left
       Move({.x = -1, .y = -1}, index),
       // up
-      InBounds(index - kGridCols) ? index - kGridCols : -1,
+      InBounds(index - kGridSize) ? index - kGridSize : -1,
       // up right
       Move({.x = 1, .y = -1}, index),
       // right
@@ -191,12 +193,19 @@ int *GetNeighbors(float *temps, int index) {
       // down right
       Move({.x = 1, .y = 1}, index),
       // down
-      InBounds(index + kGridCols) ? index + kGridCols : -1,
+      InBounds(index + kGridSize) ? index + kGridSize : -1,
       // down left
       Move({.x = -1, .y = 1}, index),
       // left
       Move({.x = -1, .y = 0}, index),
   };
+}
+
+// grid represents a continuous range over the columns or rows, rather than
+// discrete int columns.
+float GridToAngle(float grid) {
+  float norm = grid - kGridMidPt;
+  return norm * kGridToAngle;
 }
 
 Point<float> FindHeatCenter(float *temps, size_t size) {
@@ -219,7 +228,11 @@ Point<float> FindHeatCenter(float *temps, size_t size) {
   }
 
   // BFS
-  q.Enqueue(max_i);
+  bool success = q.Enqueue(max_i);
+  if (!success) {
+    return {.x = -1.0, .y = -1.0};
+  }
+
   visited.Set(max_i);
 
   float x_total = 0;
@@ -243,14 +256,7 @@ Point<float> FindHeatCenter(float *temps, size_t size) {
     }
   }
 
-  return {x_total / temp_total, y_total / temp_total};
-}
-
-// col represents a continuous range over the columns, rather than discrete int
-// columns. col values are [0, 8].
-float ColToAngle(float col) {
-  float norm = col - (kGridCols / 2);
-  // scale norm to the sensor FOV.
+  return {GridToAngle(x_total / temp_total), GridToAngle(y_total / temp_total)};
 }
 
 void setPitchSpeed(int speed) {
@@ -337,7 +343,7 @@ void fireAll() { // function to fire all 6 darts at once
   delay(5);                       // delay for smoothness
 }
 
-void engageTracking() { isTracking = true; }
+void toggleTracking() { isTracking = !isTracking; }
 
 void handleCommand(int command) {
   if ((IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT)) {
@@ -367,7 +373,7 @@ void handleCommand(int command) {
     break;
 
   case star:
-    engageTracking();
+    toggleTracking();
     break;
 
   default:
@@ -399,6 +405,20 @@ const char *getTermColor(int temp) {
   return COLOR[i];
 }
 
+void PrintGrid(float *temps) {
+  for (int i = 1; i <= AMG88xx_PIXEL_ARRAY_SIZE; i++) {
+    float temp = temps[i - 1];
+    Serial.print(getTermColor(temp));
+    Serial.print((int)temp);
+    Serial.print(END);
+    Serial.print(", ");
+    if (i % 8 == 0) {
+      Serial.println();
+    }
+  }
+  Serial.println();
+}
+
 void turretLoop() {
   if (IrReceiver.decode()) {
     int command = IrReceiver.decodedIRData.command;
@@ -410,17 +430,9 @@ void turretLoop() {
   // read all the pixels
   heat_sensor.readPixels(pixels);
 
-  for (int i = 1; i <= AMG88xx_PIXEL_ARRAY_SIZE; i++) {
-    float temp = pixels[i - 1];
-    Serial.print(getTermColor(temp));
-    Serial.print((int)temp);
-    Serial.print(END);
-    Serial.print(", ");
-    if (i % 8 == 0) {
-      Serial.println();
-    }
-  }
-  Serial.println();
+  Point<float> center = FindHeatCenter(pixels, AMG88xx_PIXEL_ARRAY_SIZE);
+
+  // PID to get to center
 
   // delay a second
   delay(1000);

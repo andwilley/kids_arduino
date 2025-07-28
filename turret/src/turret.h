@@ -19,6 +19,6 @@ template <typename T> struct Point {
   bool operator==(Point other) { return x == other.x && y == other.y; }
 };
 
-Point<float> FindHeatCenter(float *temps);
+Point<float> FindHeatCenter(float *temps, size_t size);
 
 #endif // TURRET

@@ -1,0 +1,33 @@
+#ifndef BITMASK_SET
+#define BITMASK_SET
+
+#include <string.h>
+#include <stddef.h>
+#include <stdint.h>
+
+template <size_t S> class BitmaskSet {
+public:
+  bool Contains(size_t index);
+
+  void Set(size_t index, bool high = true);
+
+  void Clear() { memset(mask, 0, sizeof(mask)); }
+
+private:
+  uint64_t mask[(S + 63) / 64] = {};
+};
+
+template <size_t S> bool BitmaskSet<S>::Contains(size_t index) {
+  return (mask[index / 64] & 1ULL << index % 64) != 0;
+}
+
+template <size_t S> void BitmaskSet<S>::Set(size_t index, bool high) {
+  uint64_t &word = mask[index / 64];
+  if (high) {
+    word |= 1ULL << index % 64;
+  } else {
+    word &= ~(1ULL << index % 64);
+  }
+}
+
+#endif // BITMASK_SET

@@ -3,11 +3,12 @@
 //////////////////////////////////////////////////
 #include "turret.h"
 #include "PinDefinitionsAndMore.h"
+#include "bitmask_set.h"
+#include "ring_buffer_queue.h"
 #include <Adafruit_AMG88xx.h>
 #include <Arduino.h>
 #include <IRremote.hpp>
 #include <Servo.h>
-#include <string.h>
 
 // IR transmission type
 #define DECODE_NEC
@@ -73,6 +74,7 @@ bool isTracking = false;
 
 constexpr int kGridCols = 8;
 constexpr int kGridRows = 8;
+constexpr int kNeighborSize = 8;
 
 // TODO: Eventually find these dynamically on startup and re-eval periodically.
 constexpr float kBackgroundTemp = 21.5;
@@ -150,19 +152,77 @@ template <typename T> T clamp(T val, T min, T max) {
   return val;
 }
 
-int col(int index) {
-  return index % kGridCols;
+int Col(int index) { return index % kGridCols; }
+
+int Row(int index) { return floor(index / kGridCols); }
+
+int Index(Point p) { return p.x * kGridCols + p.y; }
+
+int Move(Point move, int index) {
+  // convert index to row, col
+  // add point
+  // convert back to index; return
 }
 
-int row(int index) {
-  return floor(index / kGridCols);
+bool InBounds(Point p) {
+  return (p.x < kGridRows && p.x >= 0) && (p.y < kGridCols && p.y >= 0);
 }
 
-int index(int row, int col) {
-  return row * kGridCols + col;
+BitmaskSet<64> visited;
+RingBufferQueue<int, 64> q;
+
+int *GetNeighbors(float *temps, int index) {
+  int *neighbors = {
+
+  };
 }
 
-Point FindHeadCenter(float *temps) { return {1.0f, 2.0f}; }
+Point FindHeatCenter(float *temps, size_t size) {
+  visited.Clear();
+  q.Clear();
+
+  // Get the index with the highest temp
+  int max_i = 0;
+  float max = kBackgroundTemp;
+  for (int i = 0; i < size; ++i) {
+    if (temps[i] > kBackgroundTemp + kTempThreashold && temps[i] > max) {
+      max_i = i;
+      max = temps[i];
+    }
+  }
+
+  // No temps above threshold
+  if (max == kBackgroundTemp) {
+    return kNoPoint;
+  }
+
+  // BFS
+  q.Enqueue(max_i);
+  visited.Set(max_i);
+
+  float x_total = 0;
+  float y_total = 0;
+  float temp_total = 0;
+
+  while (!q.Empty()) {
+    int current = q.Dequeue();
+
+    // Sums for weighted average
+    x_total += temps[current] * Row(current);
+    y_total += temps[current] * Col(current);
+    temp_total += temps[current];
+
+    int *neighbors = GetNeighbors(temps, current);
+    for (int i = 0; i < kNeighborSize; ++i) {
+      if (!visited.Contains(i)) {
+        visited.Set(i);
+        q.Enqueue(i);
+      }
+    }
+  }
+
+  return {1.0f, 2.0f};
+}
 
 void setPitchSpeed(int speed) {
   // take the requested speed [0, 180] with 90 as stopped, like a continuous

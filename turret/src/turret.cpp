@@ -156,28 +156,50 @@ int Col(int index) { return index % kGridCols; }
 
 int Row(int index) { return floor(index / kGridCols); }
 
-int Index(Point p) { return p.x * kGridCols + p.y; }
+Point<int> ToPoint(int index) { return {.x = Col(index), .y = Row(index)}; }
 
-int Move(Point move, int index) {
-  // convert index to row, col
-  // add point
-  // convert back to index; return
+int Index(Point<int> p) { return p.x * kGridCols + p.y; }
+
+bool InBounds(Point<int> p) {
+  return (p.x < kGridCols && p.x >= 0) && (p.y < kGridRows && p.y >= 0);
 }
 
-bool InBounds(Point p) {
-  return (p.x < kGridRows && p.x >= 0) && (p.y < kGridCols && p.y >= 0);
+bool InBounds(int index) {
+  return index >= 0 && index < AMG88xx_PIXEL_ARRAY_SIZE;
 }
 
-BitmaskSet<64> visited;
-RingBufferQueue<int, 64> q;
+int Move(Point<int> move, int index) {
+  Point<int> current = ToPoint(index);
+  current += move;
+  return InBounds(current) ? Index(current) : -1;
+}
+
+// These sets can't be bigger than the search space.
+BitmaskSet<AMG88xx_PIXEL_ARRAY_SIZE> visited;
+RingBufferQueue<int, AMG88xx_PIXEL_ARRAY_SIZE> q;
 
 int *GetNeighbors(float *temps, int index) {
-  int *neighbors = {
-
+  int neighbors[kNeighborSize] = {
+      // up left
+      Move({.x = -1, .y = -1}, index),
+      // up
+      InBounds(index - kGridCols) ? index - kGridCols : -1,
+      // up right
+      Move({.x = 1, .y = -1}, index),
+      // right
+      Move({.x = 1, .y = 0}, index),
+      // down right
+      Move({.x = 1, .y = 1}, index),
+      // down
+      InBounds(index + kGridCols) ? index + kGridCols : -1,
+      // down left
+      Move({.x = -1, .y = 1}, index),
+      // left
+      Move({.x = -1, .y = 0}, index),
   };
 }
 
-Point FindHeatCenter(float *temps, size_t size) {
+Point<float> FindHeatCenter(float *temps, size_t size) {
   visited.Clear();
   q.Clear();
 
@@ -193,7 +215,7 @@ Point FindHeatCenter(float *temps, size_t size) {
 
   // No temps above threshold
   if (max == kBackgroundTemp) {
-    return kNoPoint;
+    return {.x = -1.0, .y = -1.0};
   }
 
   // BFS
@@ -208,8 +230,8 @@ Point FindHeatCenter(float *temps, size_t size) {
     int current = q.Dequeue();
 
     // Sums for weighted average
-    x_total += temps[current] * Row(current);
-    y_total += temps[current] * Col(current);
+    x_total += temps[current] * Col(current);
+    y_total += temps[current] * Row(current);
     temp_total += temps[current];
 
     int *neighbors = GetNeighbors(temps, current);
@@ -221,7 +243,14 @@ Point FindHeatCenter(float *temps, size_t size) {
     }
   }
 
-  return {1.0f, 2.0f};
+  return {x_total / temp_total, y_total / temp_total};
+}
+
+// col represents a continuous range over the columns, rather than discrete int
+// columns. col values are [0, 8].
+float ColToAngle(float col) {
+  float norm = col - (kGridCols / 2);
+  // scale norm to the sensor FOV.
 }
 
 void setPitchSpeed(int speed) {

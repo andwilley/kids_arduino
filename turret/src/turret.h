@@ -6,17 +6,19 @@
 void turretSetup();
 void turretLoop();
 
-struct Point {
-  float x;
-  float y;
+template <typename T> struct Point {
+  T x;
+  T y;
 
   Point operator+(Point other) { return {.x = x + other.x, .y = y + other.y}; }
+  void operator+=(Point other) {
+    x += other.x;
+    y += other.y;
+  }
 
   bool operator==(Point other) { return x == other.x && y == other.y; }
 };
 
-const Point kNoPoint = {.x = -1, .y = -1};
-
-Point FindHeatCenter(float *temps);
+Point<float> FindHeatCenter(float *temps);
 
 #endif // TURRET

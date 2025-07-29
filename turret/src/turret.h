@@ -11,9 +11,18 @@ template <typename T> struct Point {
   T y;
 
   Point operator+(Point other) { return {.x = x + other.x, .y = y + other.y}; }
+  Point operator-(Point other) { return {.x = x - other.x, .y = y - other.y}; }
+  Point operator*(const float rhs) { return {.x = x * rhs, .y = y * rhs}; }
+  Point operator/(const float divisor) {
+    return {.x = x / divisor, .y = y / divisor};
+  }
   void operator+=(Point other) {
     x += other.x;
     y += other.y;
+  }
+  void operator-=(Point other) {
+    x -= other.x;
+    y -= other.y;
   }
 
   bool operator==(Point other) { return x == other.x && y == other.y; }

@@ -36,6 +36,8 @@
 //  PINS AND PARAMETERS  //
 //////////////////////////////////////////////////
 
+constexpr bool kDebug = true;
+
 Adafruit_AMG88xx heat_sensor;
 float pixels[AMG88xx_PIXEL_ARRAY_SIZE];
 
@@ -70,13 +72,17 @@ constexpr int kPitchMin = 15;
 // Variables for tracking //
 //////////////////////////////////////////////////
 
-bool isTracking = false;
+bool isTracking = true;
 
 constexpr int kGridSize = 8;
 constexpr int kNeighborSize = 8;
 constexpr float kSensorFov = 31.5;
 constexpr float kGridMidPt = (kGridSize - 1) / 2;
 constexpr float kGridToAngle = kSensorFov / kGridMidPt;
+
+constexpr float kP = 5.0;
+constexpr float kD = 0.0;
+constexpr float kI = 0.0;
 
 // TODO: Eventually find these dynamically on startup and re-eval periodically.
 constexpr float kBackgroundTemp = 21.5;
@@ -92,6 +98,9 @@ int pitchStepSize = 0;
 // Tune this for best results. This sets the upper bound for linear
 // interpolation.
 constexpr int kMaxPitchStep = 300;
+
+uint64_t last_millis = 0;
+Point<float> last_error = {.x = 0, .y = 0};
 
 //////////////////////////////////////////////////
 //  SETUP  //
@@ -138,6 +147,8 @@ void turretSetup() {
   Serial.print(F("Ready to receive IR signals of protocols: "));
   printActiveIRProtocols(&Serial);
   Serial.println(F("at pin " STR(9)));
+
+  last_millis = millis();
 
   homeServos();
 }
@@ -259,6 +270,8 @@ Point<float> FindHeatCenter(float *temps, size_t size) {
   return {GridToAngle(x_total / temp_total), GridToAngle(y_total / temp_total)};
 }
 
+void setYawSpeed(int speed) { yawServo.write(speed); }
+
 void setPitchSpeed(int speed) {
   // take the requested speed [0, 180] with 90 as stopped, like a continuous
   // servo. Translate this speed to a combination of movement direction and gaps
@@ -353,22 +366,37 @@ void handleCommand(int command) {
 
   switch (command) {
   case up:
+    if (!isTracking) {
+      return;
+    }
     upMove(1);
     break;
 
   case down:
+    if (!isTracking) {
+      return;
+    }
     downMove(1);
     break;
 
   case left:
+    if (!isTracking) {
+      return;
+    }
     leftMove(1);
     break;
 
   case right:
+    if (!isTracking) {
+      return;
+    }
     rightMove(1);
     break;
 
   case ok:
+    if (!isTracking) {
+      return;
+    }
     fire();
     break;
 
@@ -419,6 +447,13 @@ void PrintGrid(float *temps) {
   Serial.println();
 }
 
+uint64_t DeltaT() {
+  uint64_t cur = millis();
+  uint64_t d_t = cur - last_millis;
+  last_millis = cur;
+  return d_t;
+}
+
 void turretLoop() {
   if (IrReceiver.decode()) {
     int command = IrReceiver.decodedIRData.command;
@@ -427,13 +462,53 @@ void turretLoop() {
   }
   delay(5);
 
-  // read all the pixels
-  heat_sensor.readPixels(pixels);
+  Point<float> current_error = {0, 0};
+  int out_x = 0;
+  int out_y = 0;
+  if (isTracking) {
+    // read all the pixels
+    heat_sensor.readPixels(pixels);
 
-  Point<float> center = FindHeatCenter(pixels, AMG88xx_PIXEL_ARRAY_SIZE);
+    current_error = FindHeatCenter(pixels, AMG88xx_PIXEL_ARRAY_SIZE);
 
-  // PID to get to center
+    // PID to get to center
+    Point<float> derivative_error = (current_error - last_error) / DeltaT();
+    last_error = current_error;
 
-  // delay a second
-  delay(1000);
+    Point<float> output = current_error * kP + derivative_error * kD;
+    out_x =
+        map(long(clamp(int(round(output.y)), -255, 255)), -255, 255, 0, 180);
+    out_y =
+        map(long(clamp(int(round(output.y)), -255, 255)), -255, 255, 0, 180);
+    setPitchSpeed(out_y);
+    setYawSpeed(out_x);
+    movePitch();
+  }
+
+  if (kDebug) {
+    PrintGrid(pixels);
+    Serial.print("last error x: ");
+    Serial.print(last_error.x);
+    Serial.print("\n");
+
+    Serial.print("last error y: ");
+    Serial.print(last_error.y);
+    Serial.print("\n");
+
+    Serial.print("current error x: ");
+    Serial.print(current_error.x);
+    Serial.print("\n");
+
+    Serial.print("current error y: ");
+    Serial.print(current_error.y);
+    Serial.print("\n");
+
+    Serial.print("output x: ");
+    Serial.print(out_x);
+    Serial.print("\n");
+
+    Serial.print("output y: ");
+    Serial.print(out_y);
+    Serial.print("\n");
+  }
 }

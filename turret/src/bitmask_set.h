@@ -18,10 +18,16 @@ private:
 };
 
 template <size_t S> bool BitmaskSet<S>::Contains(size_t index) {
+  if (index >= S) {
+    return false;
+  }
   return (mask[index / 64] & 1ULL << index % 64) != 0;
 }
 
 template <size_t S> void BitmaskSet<S>::Set(size_t index, bool high) {
+  if (index >= S) {
+    return;
+  }
   uint64_t &word = mask[index / 64];
   if (high) {
     word |= 1ULL << index % 64;

@@ -2,6 +2,9 @@
 #define TURRET
 
 #include <Adafruit_AMG88xx.h>
+#ifdef GMOCK_FLAG
+#include <cstddef>
+#endif
 
 void turretSetup();
 void turretLoop();
@@ -26,6 +29,7 @@ template <typename T> struct Point {
   }
 
   bool operator==(Point other) { return x == other.x && y == other.y; }
+  bool operator!=(Point other) { return x != other.x && y != other.y; }
 };
 
 Point<float> FindHeatCenter(float *temps, size_t size);

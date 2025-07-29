@@ -6,7 +6,7 @@
 // A ring buffer de/queue.
 template <typename T, size_t S> class RingBufferQueue {
 public:
-  RingBufferQueue() : head(T(0)), tail(T(0)){};
+  RingBufferQueue() : head(0), tail(0){};
 
   bool Enqueue(T item);
 

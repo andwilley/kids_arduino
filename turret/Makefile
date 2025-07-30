@@ -2,6 +2,7 @@ CXX := g++
 CXXFLAGS := -std=c++17 -isystem/opt/homebrew/opt/googletest/include -Isrc -Itests/gtest/mocks -pthread
 LDFLAGS := -L/opt/homebrew/opt/googletest/lib -lgtest -lgtest_main
 
+test: CXXFLAGS += -DGMOCK_FLAG
 test: tests/gtest/turret_test.o src/turret.o tests/gtest/mocks/Arduino.o tests/gtest/mocks/IRremote.o tests/gtest/mocks/Servo.o
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 

@@ -1,10 +1,15 @@
+#ifdef GMOCK_FLAG
+#include "Arduino.h"
+#include <cmath>
+#endif // GMOCK_FLAG
+
 //////////////////////////////////////////////////
 //  LIBRARIES  //
 //////////////////////////////////////////////////
-#include "turret.h"
 #include "PinDefinitionsAndMore.h"
 #include "bitmask_set.h"
 #include "ring_buffer_queue.h"
+#include "turret.h"
 #include <Adafruit_AMG88xx.h>
 #include <Arduino.h>
 #include <IRremote.hpp>
@@ -77,12 +82,20 @@ bool isTracking = true;
 constexpr int kGridSize = 8;
 constexpr int kNeighborSize = 8;
 constexpr float kSensorFov = 31.5;
-constexpr float kGridMidPt = (kGridSize - 1) / 2;
+constexpr float kGridMidPt = (kGridSize - 1) / 2.0f;
 constexpr float kGridToAngle = kSensorFov / kGridMidPt;
 
-constexpr float kP = 5.0;
-constexpr float kD = 0.0;
+// How close to 90 is considered "stopped"
+constexpr int kYawDeadband = 20;
+
+constexpr float kP = 30.0;
+constexpr float kD = 10.0;
 constexpr float kI = 0.0;
+
+// The range of the output from the PID controller. This is used to map the
+// controller output to the servo output range. A smaller value makes the
+// controller more sensitive.
+constexpr int kControlRange = 100;
 
 // TODO: Eventually find these dynamically on startup and re-eval periodically.
 constexpr float kBackgroundTemp = 21.5;
@@ -100,7 +113,7 @@ int pitchStepSize = 0;
 constexpr int kMaxPitchStep = 300;
 
 uint64_t last_millis = 0;
-Point<float> last_error = {.x = 0, .y = 0};
+Point<float> last_error = {.x = 0.0, .y = 0.0};
 
 //////////////////////////////////////////////////
 //  SETUP  //
@@ -171,7 +184,7 @@ int Row(int index) { return floor(index / kGridSize); }
 
 Point<int> ToPoint(int index) { return {.x = Col(index), .y = Row(index)}; }
 
-int Index(Point<int> p) { return p.x * kGridSize + p.y; }
+int Index(Point<int> p) { return p.y * kGridSize + p.x; }
 
 bool InBounds(Point<int> p) {
   return (p.x < kGridSize && p.x >= 0) && (p.y < kGridSize && p.y >= 0);
@@ -191,25 +204,23 @@ int Move(Point<int> move, int index) {
 BitmaskSet<AMG88xx_PIXEL_ARRAY_SIZE> visited;
 RingBufferQueue<int, AMG88xx_PIXEL_ARRAY_SIZE> q;
 
-int *GetNeighbors(float *temps, int index) {
-  int neighbors[kNeighborSize] = {
-      // up left
-      Move({.x = -1, .y = -1}, index),
-      // up
-      InBounds(index - kGridSize) ? index - kGridSize : -1,
-      // up right
-      Move({.x = 1, .y = -1}, index),
-      // right
-      Move({.x = 1, .y = 0}, index),
-      // down right
-      Move({.x = 1, .y = 1}, index),
-      // down
-      InBounds(index + kGridSize) ? index + kGridSize : -1,
-      // down left
-      Move({.x = -1, .y = 1}, index),
-      // left
-      Move({.x = -1, .y = 0}, index),
-  };
+void GetNeighbors(int index, int *neighbors_out) {
+  // up left
+  neighbors_out[0] = Move({.x = -1, .y = -1}, index);
+  // up
+  neighbors_out[1] = InBounds(index - kGridSize) ? index - kGridSize : -1;
+  // up right
+  neighbors_out[2] = Move({.x = 1, .y = -1}, index);
+  // right
+  neighbors_out[3] = Move({.x = 1, .y = 0}, index);
+  // down right
+  neighbors_out[4] = Move({.x = 1, .y = 1}, index);
+  // down
+  neighbors_out[5] = InBounds(index + kGridSize) ? index + kGridSize : -1;
+  // down left
+  neighbors_out[6] = Move({.x = -1, .y = 1}, index);
+  // left
+  neighbors_out[7] = Move({.x = -1, .y = 0}, index);
 }
 
 // grid represents a continuous range over the columns or rows, rather than
@@ -235,13 +246,13 @@ Point<float> FindHeatCenter(float *temps, size_t size) {
 
   // No temps above threshold
   if (max == kBackgroundTemp) {
-    return {.x = -1.0, .y = -1.0};
+    return {.x = 0.0, .y = 0.0};
   }
 
   // BFS
   bool success = q.Enqueue(max_i);
   if (!success) {
-    return {.x = -1.0, .y = -1.0};
+    return {.x = 0.0, .y = 0.0};
   }
 
   visited.Set(max_i);
@@ -252,25 +263,54 @@ Point<float> FindHeatCenter(float *temps, size_t size) {
 
   while (!q.Empty()) {
     int current = q.Dequeue();
+    float cur_temp = temps[current];
 
     // Sums for weighted average
-    x_total += temps[current] * Col(current);
-    y_total += temps[current] * Row(current);
-    temp_total += temps[current];
+    x_total += cur_temp * Col(current);
+    y_total += cur_temp * Row(current);
+    temp_total += cur_temp;
 
-    int *neighbors = GetNeighbors(temps, current);
+    int neighbors[kNeighborSize];
+    GetNeighbors(current, neighbors);
     for (int i = 0; i < kNeighborSize; ++i) {
-      if (!visited.Contains(i)) {
-        visited.Set(i);
-        q.Enqueue(i);
+      int neighbor_idx = neighbors[i];
+      if (neighbor_idx != -1 && !visited.Contains(neighbor_idx) &&
+          temps[neighbor_idx] > kBackgroundTemp + kTempThreashold) {
+        visited.Set(neighbor_idx);
+        q.Enqueue(neighbor_idx);
       }
     }
+  }
+
+  if (temp_total == 0) {
+    return {.x = 0.0, .y = 0.0};
   }
 
   return {GridToAngle(x_total / temp_total), GridToAngle(y_total / temp_total)};
 }
 
-void setYawSpeed(int speed) { yawServo.write(speed); }
+void setYawSpeed(int speed) {
+  constexpr int kStopSpeed = 90;
+  if (speed == kStopSpeed) {
+    yawServo.write(kStopSpeed);
+    yawServoVal = kStopSpeed;
+    return;
+  }
+
+  // If speed is inside the deadband, but not stopped, push it outside.
+  if (abs(speed - kStopSpeed) < kYawDeadband) {
+    if (speed > kStopSpeed) {
+      yawServo.write(kStopSpeed + kYawDeadband);
+      yawServoVal = kStopSpeed + kYawDeadband;
+    } else {
+      yawServo.write(kStopSpeed - kYawDeadband);
+      yawServoVal = kStopSpeed - kYawDeadband;
+    }
+  } else {
+    yawServo.write(speed);
+    yawServoVal = speed;
+  }
+}
 
 void setPitchSpeed(int speed) {
   // take the requested speed [0, 180] with 90 as stopped, like a continuous
@@ -278,21 +318,26 @@ void setPitchSpeed(int speed) {
   // between mvmt.
   pitchSpeed = clamp(speed, 0, 180);
   int norm = clamp(abs(speed - 90), 0, 90);
-  int pitchStepSize = kMaxPitchStep - (norm / 90);
+  // The old calculation resulted in a step size of [299, 300], which is
+  // far too slow. This new calculation maps the speed to a step size
+  // from kMaxPitchStep down to 0.
+  pitchStepSize = round(kMaxPitchStep * (1.0 - (float(norm) / 90.0)));
 }
 
 // Check if the pitch servo should be moving, and move it
 void movePitch() {
-  if (pitchSpeed = 90) {
+  if (pitchSpeed == 90) {
     return;
   }
-  if (millis() > lastPitchMoveMs + pitchStepSize &&
-      pitchServoVal != kPitchMax && pitchServoVal != kPitchMin) {
+  if (millis() > lastPitchMoveMs + pitchStepSize) {
+    lastPitchMoveMs = millis();
     if (pitchSpeed > 90) {
       pitchServoVal++;
     } else {
       pitchServoVal--;
     }
+    pitchServoVal = clamp(pitchServoVal, kPitchMin, kPitchMax);
+    pitchServo.write(pitchServoVal);
   }
 }
 
@@ -411,34 +456,32 @@ void handleCommand(int command) {
   }
 }
 
-const char COLOR_0[13] = "\033[48;5;12m";
-const char COLOR_19[13] = "\033[48;5;12m";
 const char END[9] = "\033[0m";
 
-const char COLOR[20][13] = {
-    "\033[48;5;12m",  "\033[48;5;21m",  "\033[48;5;33m",  "\033[48;5;51m",
-    "\033[48;5;48m",  "\033[48;5;119m", "\033[48;5;155m", "\033[48;5;191m",
+const char COLOR[20][14] = {
+    "\033[48;5;12m ", "\033[48;5;21m ", "\033[48;5;33m ", "\033[48;5;51m ",
+    "\033[48;5;48m ", "\033[48;5;119m", "\033[48;5;155m", "\033[48;5;191m",
     "\033[48;5;226m", "\033[48;5;222m", "\033[48;5;220m", "\033[48;5;214m",
     "\033[48;5;208m", "\033[48;5;202m", "\033[48;5;198m", "\033[48;5;197m",
-    "\033[48;5;196m", "\033[48;5;9m",   "\033[48;5;160",  "\033[48;5;124m",
+    "\033[48;5;196m", "\033[48;5;9m  ", "\033[48;5;160m", "\033[48;5;124m",
 };
 const int MIN_TEMP = 15;
 
 const char *getTermColor(int temp) {
   if (temp < 15)
-    return COLOR_0;
+    return COLOR[0];
   if (temp >= 35)
-    return COLOR_19;
-  int i = temp - MIN_TEMP;
+    return COLOR[19];
+  int i = clamp(temp - MIN_TEMP, 0, 19);
   return COLOR[i];
 }
 
 void PrintGrid(float *temps) {
-  for (int i = 1; i <= AMG88xx_PIXEL_ARRAY_SIZE; i++) {
+  for (int i = 1; i <= AMG88xx_PIXEL_ARRAY_SIZE; ++i) {
     float temp = temps[i - 1];
-    Serial.print(getTermColor(temp));
+    // Serial.print(getTermColor(temp));
     Serial.print((int)temp);
-    Serial.print(END);
+    // Serial.print(END);
     Serial.print(", ");
     if (i % 8 == 0) {
       Serial.println();
@@ -451,7 +494,16 @@ uint64_t DeltaT() {
   uint64_t cur = millis();
   uint64_t d_t = cur - last_millis;
   last_millis = cur;
-  return d_t;
+  return d_t == 0 ? 1 : d_t;
+}
+
+// The sensor is rotated 90 degrees clockwise. This function transforms the
+// error coordinates to match the turret's orientation. A point(x, y) in the
+// sensor's frame becomes (y, -x) in the turret's frame.
+void RotateError90Cw(Point<float> &error) {
+  float temp_x = error.x;
+  error.x = error.y;
+  error.y = -temp_x;
 }
 
 void turretLoop() {
@@ -462,14 +514,14 @@ void turretLoop() {
   }
   delay(5);
 
-  Point<float> current_error = {0, 0};
+  Point<float> current_error = {0.0, 0.0};
   int out_x = 0;
   int out_y = 0;
+  // read all the pixels
+  heat_sensor.readPixels(pixels);
   if (isTracking) {
-    // read all the pixels
-    heat_sensor.readPixels(pixels);
-
     current_error = FindHeatCenter(pixels, AMG88xx_PIXEL_ARRAY_SIZE);
+    RotateError90Cw(current_error);
 
     // PID to get to center
     Point<float> derivative_error = (current_error - last_error) / DeltaT();
@@ -477,9 +529,11 @@ void turretLoop() {
 
     Point<float> output = current_error * kP + derivative_error * kD;
     out_x =
-        map(long(clamp(int(round(output.y)), -255, 255)), -255, 255, 0, 180);
+        map(long(clamp(int(round(output.x)), -kControlRange, kControlRange)),
+            -kControlRange, kControlRange, 0, 180);
     out_y =
-        map(long(clamp(int(round(output.y)), -255, 255)), -255, 255, 0, 180);
+        map(long(clamp(int(round(output.y)), -kControlRange, kControlRange)),
+            -kControlRange, kControlRange, 0, 180);
     setPitchSpeed(out_y);
     setYawSpeed(out_x);
     movePitch();
@@ -487,13 +541,6 @@ void turretLoop() {
 
   if (kDebug) {
     PrintGrid(pixels);
-    Serial.print("last error x: ");
-    Serial.print(last_error.x);
-    Serial.print("\n");
-
-    Serial.print("last error y: ");
-    Serial.print(last_error.y);
-    Serial.print("\n");
 
     Serial.print("current error x: ");
     Serial.print(current_error.x);
@@ -510,5 +557,21 @@ void turretLoop() {
     Serial.print("output y: ");
     Serial.print(out_y);
     Serial.print("\n");
+
+    Serial.print("pitch speed: ");
+    Serial.print(pitchSpeed);
+    Serial.print("\n");
+
+    Serial.print("pitch servo val: ");
+    Serial.print(pitchServoVal);
+    Serial.print("\n");
+
+    Serial.print("yaw servo val: ");
+    Serial.print(yawServoVal);
+    Serial.print("\n");
+    Serial.print("\n");
+    Serial.print("\n");
+
+    delay(3000);
   }
 }

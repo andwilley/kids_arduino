@@ -18,6 +18,8 @@ int analogRead(int);
 long random(long);
 long random(long, long);
 void delay(int);
+unsigned long millis();
+long map(long, long, long, long, long);
 
 #define F(str) str
 

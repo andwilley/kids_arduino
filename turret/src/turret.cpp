@@ -180,7 +180,7 @@ template <typename T> T clamp(T val, T min, T max) {
 
 int Col(int index) { return index % kGridSize; }
 
-int Row(int index) { return floor(index / kGridSize); }
+int Row(int index) { return index / kGridSize; }
 
 Point<int> ToPoint(int index) { return {.x = Col(index), .y = Row(index)}; }
 

@@ -50,8 +50,13 @@ Servo yawServo;
 Servo pitchServo;
 Servo rollServo;
 
+// new pitch servo with esp32 nano
+constexpr int kPitchMax = 115;
+constexpr int kPitchMin = 35;
+constexpr int kPitchInit = (kPitchMax + kPitchMin) / 2 + kPitchMin;
+
 // [0, 180], defines the angle of the servo, with 0 being down.
-int pitchServoVal = 100;
+int pitchServoVal = kPitchInit;
 // yaw and roll servos are continuous. Input values are positive/negative speeds
 // with 90 as the zero value [0, 180].
 int yawServoVal = 90;
@@ -70,14 +75,11 @@ int rollStopSpeed = 90;
 int yawPrecision = 150;
 int rollPrecision = 158;
 
-constexpr int kPitchMax = 175;
-constexpr int kPitchMin = 15;
-
 //////////////////////////////////////////////////
 // Variables for tracking //
 //////////////////////////////////////////////////
 
-bool isTracking = true;
+bool isTracking = false;
 
 constexpr int kGridSize = 8;
 constexpr int kNeighborSize = 8;
@@ -86,7 +88,7 @@ constexpr float kGridMidPt = (kGridSize - 1) / 2.0f;
 constexpr float kGridToAngle = kSensorFov / kGridMidPt;
 
 // How close to 90 is considered "stopped"
-constexpr int kYawDeadband = 20;
+constexpr int kYawDeadband = 25;
 
 constexpr float kP = 30.0;
 constexpr float kD = 10.0;
@@ -124,9 +126,8 @@ void homeServos() {
   delay(20);
   rollServo.write(rollStopSpeed);
   delay(100);
-  pitchServo.write(100);
+  pitchServo.write(pitchServoVal);
   delay(100);
-  pitchServoVal = 100; // store the pitch servo value
 }
 
 void turretSetup() {
@@ -139,8 +140,6 @@ void turretSetup() {
   status = heat_sensor.begin();
   if (!status) {
     Serial.println("Could not find a valid AMG88xx sensor, check wiring!");
-    while (1)
-      ;
   }
 
   Serial.println("-- Thermistor Test --");
@@ -149,17 +148,15 @@ void turretSetup() {
 
   delay(100); // let sensor boot up
 
-  yawServo.attach(10);   // attach YAW servo to pin 3
-  pitchServo.attach(11); // attach PITCH servo to pin 4
-  rollServo.attach(12);  // attach ROLL servo to pin 5
+  yawServo.attach(6);
+  pitchServo.attach(7);
+  rollServo.attach(8);
 
   // Start the receiver and if not 3. parameter specified, take LED_BUILTIN pin
   // from the internal boards definition as default feedback LED
-  IrReceiver.begin(9, ENABLE_LED_FEEDBACK);
+  IrReceiver.begin(5, ENABLE_LED_FEEDBACK);
 
   Serial.print(F("Ready to receive IR signals of protocols: "));
-  printActiveIRProtocols(&Serial);
-  Serial.println(F("at pin " STR(9)));
 
   last_millis = millis();
 
@@ -289,6 +286,9 @@ Point<float> FindHeatCenter(float *temps, size_t size) {
   return {GridToAngle(x_total / temp_total), GridToAngle(y_total / temp_total)};
 }
 
+// TODO: This should add kYawDeadBand to everything
+// we should also map certain very small sensor values to 0, like a min sensor
+// tolernace
 void setYawSpeed(int speed) {
   constexpr int kStopSpeed = 90;
   if (speed == kStopSpeed) {
@@ -300,15 +300,15 @@ void setYawSpeed(int speed) {
   // If speed is inside the deadband, but not stopped, push it outside.
   if (abs(speed - kStopSpeed) < kYawDeadband) {
     if (speed > kStopSpeed) {
-      yawServo.write(kStopSpeed + kYawDeadband);
       yawServoVal = kStopSpeed + kYawDeadband;
+      yawServo.write(yawServoVal);
     } else {
-      yawServo.write(kStopSpeed - kYawDeadband);
       yawServoVal = kStopSpeed - kYawDeadband;
+      yawServo.write(yawServoVal);
     }
   } else {
-    yawServo.write(speed);
     yawServoVal = speed;
+    yawServo.write(yawServoVal);
   }
 }
 
@@ -507,56 +507,64 @@ void RotateError90Cw(Point<float> &error) {
 }
 
 void turretLoop() {
-  if (IrReceiver.decode()) {
-    int command = IrReceiver.decodedIRData.command;
-    IrReceiver.resume();
-    handleCommand(command);
-  }
-  delay(5);
+  yawServo.write(115);
 
-  Point<float> current_error = {0.0, 0.0};
-  int out_x = 0;
-  int out_y = 0;
-  // read all the pixels
-  heat_sensor.readPixels(pixels);
-  if (isTracking) {
-    current_error = FindHeatCenter(pixels, AMG88xx_PIXEL_ARRAY_SIZE);
-    RotateError90Cw(current_error);
+  if (!kDebug) {
+    if (IrReceiver.decode()) {
+      int command = IrReceiver.decodedIRData.command;
+      IrReceiver.resume();
+      handleCommand(command);
+    }
+    delay(5);
 
-    // PID to get to center
-    Point<float> derivative_error = (current_error - last_error) / DeltaT();
-    last_error = current_error;
+    Point<float> current_error = {0.0, 0.0};
+    int out_x = 0;
+    int out_y = 0;
+    // read all the pixels
+    heat_sensor.readPixels(pixels);
 
-    Point<float> output = current_error * kP + derivative_error * kD;
-    out_x =
-        map(long(clamp(int(round(output.x)), -kControlRange, kControlRange)),
-            -kControlRange, kControlRange, 0, 180);
-    out_y =
-        map(long(clamp(int(round(output.y)), -kControlRange, kControlRange)),
-            -kControlRange, kControlRange, 0, 180);
-    setPitchSpeed(out_y);
-    setYawSpeed(out_x);
-    movePitch();
+    if (isTracking) {
+      current_error = FindHeatCenter(pixels, AMG88xx_PIXEL_ARRAY_SIZE);
+      RotateError90Cw(current_error);
+
+      // PID to get to center
+      Point<float> derivative_error = (current_error - last_error) / DeltaT();
+      last_error = current_error;
+
+      Point<float> output = current_error * kP + derivative_error * kD;
+      out_x =
+          map(long(clamp(int(round(output.x)), -kControlRange, kControlRange)),
+              -kControlRange, kControlRange, 0, 180);
+      out_y =
+          map(long(clamp(int(round(output.y)), -kControlRange, kControlRange)),
+              -kControlRange, kControlRange, 0, 180);
+      setPitchSpeed(out_y);
+      setYawSpeed(out_x);
+      movePitch();
+    }
+    if (kDebug) {
+      PrintGrid(pixels);
+
+      Serial.print("current error x: ");
+      Serial.print(current_error.x);
+      Serial.print("\n");
+
+      Serial.print("current error y: ");
+      Serial.print(current_error.y);
+      Serial.print("\n");
+
+      Serial.print("output x: ");
+      Serial.print(out_x);
+      Serial.print("\n");
+
+      Serial.print("output y: ");
+      Serial.print(out_y);
+      Serial.print("\n");
+    }
   }
 
   if (kDebug) {
     PrintGrid(pixels);
-
-    Serial.print("current error x: ");
-    Serial.print(current_error.x);
-    Serial.print("\n");
-
-    Serial.print("current error y: ");
-    Serial.print(current_error.y);
-    Serial.print("\n");
-
-    Serial.print("output x: ");
-    Serial.print(out_x);
-    Serial.print("\n");
-
-    Serial.print("output y: ");
-    Serial.print(out_y);
-    Serial.print("\n");
 
     Serial.print("pitch speed: ");
     Serial.print(pitchSpeed);

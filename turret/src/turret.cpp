@@ -6,7 +6,6 @@
 //////////////////////////////////////////////////
 //  LIBRARIES  //
 //////////////////////////////////////////////////
-#include "PinDefinitionsAndMore.h"
 #include "bitmask_set.h"
 #include "ring_buffer_queue.h"
 #include "turret.h"
@@ -37,11 +36,26 @@
 #define star 0x16
 #define hashtag 0xD
 
+/*
+ * TODO
+ * *   class for servo control and memory. maybe different for continuous vs
+ *     standard? Keep current setting, previous settings, methods to move at
+ *     a given speed and set to particular angle (type depending). Should get
+ *     rid of a lot of the variables below.
+ * *   class for the PID math
+ * *   class for the heat sensor, consilidate work on that data source,
+ *     including finding the heat center, finding the highest value, thresholds,
+ *     etc.
+ * *   separate file for utilities like traversing a 1D grid and Clamp
+ * *   class for debug logging. perhaps include levels? Ability to write to
+ *     serial and control with flags and env vars.
+ * *   class for Point<T>
+ * *   swap in esp32 servo library
+ */
+
 //////////////////////////////////////////////////
 //  PINS AND PARAMETERS  //
 //////////////////////////////////////////////////
-
-constexpr bool kDebug = true;
 
 Adafruit_AMG88xx heat_sensor;
 float pixels[AMG88xx_PIXEL_ARRAY_SIZE];
@@ -49,11 +63,6 @@ float pixels[AMG88xx_PIXEL_ARRAY_SIZE];
 Servo yawServo;
 Servo pitchServo;
 Servo rollServo;
-
-// new pitch servo with esp32 nano
-constexpr int kPitchMax = 115;
-constexpr int kPitchMin = 35;
-constexpr int kPitchInit = (kPitchMax + kPitchMin) / 2 + kPitchMin;
 
 // [0, 180], defines the angle of the servo, with 0 being down.
 int pitchServoVal = kPitchInit;
@@ -66,42 +75,11 @@ int lastYawServoVal = 90;
 int lastPitchServoVal = 90;
 int lastRollServoVal = 90;
 
-int pitchMoveSpeed = 8;
-int yawMoveSpeed = 90;
-int yawStopSpeed = 90;
-int rollMoveSpeed = 90;
-int rollStopSpeed = 90;
-
-int yawPrecision = 150;
-int rollPrecision = 158;
-
 //////////////////////////////////////////////////
 // Variables for tracking //
 //////////////////////////////////////////////////
 
 bool isTracking = false;
-
-constexpr int kGridSize = 8;
-constexpr int kNeighborSize = 8;
-constexpr float kSensorFov = 31.5;
-constexpr float kGridMidPt = (kGridSize - 1) / 2.0f;
-constexpr float kGridToAngle = kSensorFov / kGridMidPt;
-
-// How close to 90 is considered "stopped"
-constexpr int kYawDeadband = 25;
-
-constexpr float kP = 30.0;
-constexpr float kD = 10.0;
-constexpr float kI = 0.0;
-
-// The range of the output from the PID controller. This is used to map the
-// controller output to the servo output range. A smaller value makes the
-// controller more sensitive.
-constexpr int kControlRange = 100;
-
-// TODO: Eventually find these dynamically on startup and re-eval periodically.
-constexpr float kBackgroundTemp = 21.5;
-constexpr float kTempThreashold = 1.5;
 
 // The last time pitch moved. Track this to move it with varying pauses to
 // simulate speed.
@@ -121,16 +99,16 @@ Point<float> last_error = {.x = 0.0, .y = 0.0};
 //  SETUP  //
 //////////////////////////////////////////////////
 
-void homeServos() {
-  yawServo.write(yawStopSpeed);
+void HomeServos() {
+  yawServo.write(kStopSpeed);
   delay(20);
-  rollServo.write(rollStopSpeed);
-  delay(100);
+  rollServo.write(kStopSpeed);
+  delay(20);
   pitchServo.write(pitchServoVal);
-  delay(100);
+  delay(20);
 }
 
-void turretSetup() {
+void TurretSetup() {
   Serial.begin(9600);
   Serial.println(F("AMG88xx test"));
 
@@ -160,20 +138,12 @@ void turretSetup() {
 
   last_millis = millis();
 
-  homeServos();
+  HomeServos();
 }
 
 ////////////////////////////////////////////////
 //  L O O P  //
 ////////////////////////////////////////////////
-
-template <typename T> T clamp(T val, T min, T max) {
-  if (val < min)
-    return min;
-  if (val > max)
-    return max;
-  return val;
-}
 
 int Col(int index) { return index % kGridSize; }
 
@@ -283,41 +253,34 @@ Point<float> FindHeatCenter(float *temps, size_t size) {
     return {.x = 0.0, .y = 0.0};
   }
 
-  return {GridToAngle(x_total / temp_total), GridToAngle(y_total / temp_total)};
+  Point<float> error = {GridToAngle(x_total / temp_total),
+                        GridToAngle(y_total / temp_total)};
+  return ApplyTolerance(error);
 }
 
-// TODO: This should add kYawDeadBand to everything
-// we should also map certain very small sensor values to 0, like a min sensor
-// tolernace
-void setYawSpeed(int speed) {
-  constexpr int kStopSpeed = 90;
+void SetYawSpeed(int speed) {
+
   if (speed == kStopSpeed) {
-    yawServo.write(kStopSpeed);
     yawServoVal = kStopSpeed;
+    yawServo.write(yawServoVal);
     return;
   }
 
-  // If speed is inside the deadband, but not stopped, push it outside.
-  if (abs(speed - kStopSpeed) < kYawDeadband) {
-    if (speed > kStopSpeed) {
-      yawServoVal = kStopSpeed + kYawDeadband;
-      yawServo.write(yawServoVal);
-    } else {
-      yawServoVal = kStopSpeed - kYawDeadband;
-      yawServo.write(yawServoVal);
-    }
-  } else {
-    yawServoVal = speed;
-    yawServo.write(yawServoVal);
+  int signedDeadBand = kYawDeadband;
+  if (speed < kStopSpeed) {
+    signedDeadBand = -1 * kYawDeadband;
   }
+
+  yawServoVal = speed + kYawDeadband;
+  yawServo.write(yawServoVal);
 }
 
-void setPitchSpeed(int speed) {
+void SetPitchSpeed(int speed) {
   // take the requested speed [0, 180] with 90 as stopped, like a continuous
   // servo. Translate this speed to a combination of movement direction and gaps
   // between mvmt.
-  pitchSpeed = clamp(speed, 0, 180);
-  int norm = clamp(abs(speed - 90), 0, 90);
+  pitchSpeed = Clamp(speed, 0, 180);
+  int norm = Clamp(abs(speed - 90), 0, 90);
   // The old calculation resulted in a step size of [299, 300], which is
   // far too slow. This new calculation maps the speed to a step size
   // from kMaxPitchStep down to 0.
@@ -325,7 +288,7 @@ void setPitchSpeed(int speed) {
 }
 
 // Check if the pitch servo should be moving, and move it
-void movePitch() {
+void MovePitch() {
   if (pitchSpeed == 90) {
     return;
   }
@@ -336,74 +299,29 @@ void movePitch() {
     } else {
       pitchServoVal--;
     }
-    pitchServoVal = clamp(pitchServoVal, kPitchMin, kPitchMax);
+    pitchServoVal = Clamp(pitchServoVal, kPitchMin, kPitchMax);
     pitchServo.write(pitchServoVal);
   }
 }
 
-void leftMove(int moves) {
-  for (int i = 0; i < moves; i++) {
-    yawServo.write(yawStopSpeed + yawMoveSpeed);
-    delay(yawPrecision);
-    yawServo.write(yawStopSpeed);
-    delay(5);
-    Serial.println("LEFT");
-  }
+void LeftMove() {}
+
+void RightMove() {}
+
+void UpMove() {}
+
+void DownMove() {}
+
+void Fire() {                               // function for firing a single dart
+  rollServo.write(kStopSpeed + kRollSpeed); // start rotating the servo
+  delay(kRollPrecision);       // time for approximately 60 degrees of rotation
+  rollServo.write(kStopSpeed); // stop rotating the servo
+  delay(5);                    // delay for smoothness
 }
 
-void rightMove(int moves) {
-  for (int i = 0; i < moves; i++) {
-    yawServo.write(yawStopSpeed - yawMoveSpeed);
-    delay(yawPrecision);
-    yawServo.write(yawStopSpeed);
-    delay(5);
-    Serial.println("RIGHT");
-  }
-}
+void ToggleTracking() { isTracking = !isTracking; }
 
-void upMove(int moves) {
-  for (int i = 0; i < moves; i++) {
-    if (pitchServoVal > kPitchMin) {
-      pitchServoVal = pitchServoVal -
-                      pitchMoveSpeed; // decrement the current angle and update
-      pitchServo.write(pitchServoVal);
-      delay(50);
-      Serial.println("UP");
-    }
-  }
-}
-
-void downMove(int moves) {
-  for (int i = 0; i < moves; i++) {
-    if (pitchServoVal <
-        kPitchMax) { // make sure the servo is within rotation
-                     // limits (less than 175 degrees by default)
-      pitchServoVal = pitchServoVal +
-                      pitchMoveSpeed; // increment the current angle and update
-      pitchServo.write(pitchServoVal);
-      delay(50);
-      Serial.println("DOWN");
-    }
-  }
-}
-
-void fire() { // function for firing a single dart
-  rollServo.write(rollStopSpeed + rollMoveSpeed); // start rotating the servo
-  delay(rollPrecision); // time for approximately 60 degrees of rotation
-  rollServo.write(rollStopSpeed); // stop rotating the servo
-  delay(5);                       // delay for smoothness
-}
-
-void fireAll() { // function to fire all 6 darts at once
-  rollServo.write(rollStopSpeed + rollMoveSpeed); // start rotating the servo
-  delay(rollPrecision * 6);       // time for 360 degrees of rotation
-  rollServo.write(rollStopSpeed); // stop rotating the servo
-  delay(5);                       // delay for smoothness
-}
-
-void toggleTracking() { isTracking = !isTracking; }
-
-void handleCommand(int command) {
+void HandleCommand(int command) {
   if ((IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT)) {
     Serial.println("DEBOUNCING REPEATED NUMBER - IGNORING INPUT");
     return;
@@ -414,39 +332,36 @@ void handleCommand(int command) {
     if (!isTracking) {
       return;
     }
-    upMove(1);
+    UpMove();
     break;
 
   case down:
     if (!isTracking) {
       return;
     }
-    downMove(1);
+    DownMove();
     break;
 
   case left:
     if (!isTracking) {
       return;
     }
-    leftMove(1);
+    LeftMove();
     break;
 
   case right:
     if (!isTracking) {
       return;
     }
-    rightMove(1);
+    RightMove();
     break;
 
   case ok:
-    if (!isTracking) {
-      return;
-    }
-    fire();
+    Fire();
     break;
 
   case star:
-    toggleTracking();
+    ToggleTracking();
     break;
 
   default:
@@ -456,32 +371,10 @@ void handleCommand(int command) {
   }
 }
 
-const char END[9] = "\033[0m";
-
-const char COLOR[20][14] = {
-    "\033[48;5;12m ", "\033[48;5;21m ", "\033[48;5;33m ", "\033[48;5;51m ",
-    "\033[48;5;48m ", "\033[48;5;119m", "\033[48;5;155m", "\033[48;5;191m",
-    "\033[48;5;226m", "\033[48;5;222m", "\033[48;5;220m", "\033[48;5;214m",
-    "\033[48;5;208m", "\033[48;5;202m", "\033[48;5;198m", "\033[48;5;197m",
-    "\033[48;5;196m", "\033[48;5;9m  ", "\033[48;5;160m", "\033[48;5;124m",
-};
-const int MIN_TEMP = 15;
-
-const char *getTermColor(int temp) {
-  if (temp < 15)
-    return COLOR[0];
-  if (temp >= 35)
-    return COLOR[19];
-  int i = clamp(temp - MIN_TEMP, 0, 19);
-  return COLOR[i];
-}
-
 void PrintGrid(float *temps) {
   for (int i = 1; i <= AMG88xx_PIXEL_ARRAY_SIZE; ++i) {
     float temp = temps[i - 1];
-    // Serial.print(getTermColor(temp));
     Serial.print((int)temp);
-    // Serial.print(END);
     Serial.print(", ");
     if (i % 8 == 0) {
       Serial.println();
@@ -506,42 +399,32 @@ void RotateError90Cw(Point<float> &error) {
   error.y = -temp_x;
 }
 
-void turretLoop() {
-  yawServo.write(115);
+void TurretLoop() {
+  Point<float> current_error = {0.0, 0.0};
+  int out_x = 0;
+  int out_y = 0;
+  // read all the pixels
+  heat_sensor.readPixels(pixels);
 
-  if (!kDebug) {
-    if (IrReceiver.decode()) {
-      int command = IrReceiver.decodedIRData.command;
-      IrReceiver.resume();
-      handleCommand(command);
-    }
-    delay(5);
+  if (isTracking) {
+    current_error = FindHeatCenter(pixels, AMG88xx_PIXEL_ARRAY_SIZE);
+    RotateError90Cw(current_error);
 
-    Point<float> current_error = {0.0, 0.0};
-    int out_x = 0;
-    int out_y = 0;
-    // read all the pixels
-    heat_sensor.readPixels(pixels);
+    // PID to get to center
+    Point<float> derivative_error = (current_error - last_error) / DeltaT();
+    last_error = current_error;
 
-    if (isTracking) {
-      current_error = FindHeatCenter(pixels, AMG88xx_PIXEL_ARRAY_SIZE);
-      RotateError90Cw(current_error);
+    Point<float> output = current_error * kP + derivative_error * kD;
+    out_x =
+        map(long(Clamp(int(round(output.x)), -kControlRange, kControlRange)),
+            -kControlRange, kControlRange, 0, 180);
+    out_y =
+        map(long(Clamp(int(round(output.y)), -kControlRange, kControlRange)),
+            -kControlRange, kControlRange, 0, 180);
+    SetPitchSpeed(out_y);
+    SetYawSpeed(out_x);
+    MovePitch();
 
-      // PID to get to center
-      Point<float> derivative_error = (current_error - last_error) / DeltaT();
-      last_error = current_error;
-
-      Point<float> output = current_error * kP + derivative_error * kD;
-      out_x =
-          map(long(clamp(int(round(output.x)), -kControlRange, kControlRange)),
-              -kControlRange, kControlRange, 0, 180);
-      out_y =
-          map(long(clamp(int(round(output.y)), -kControlRange, kControlRange)),
-              -kControlRange, kControlRange, 0, 180);
-      setPitchSpeed(out_y);
-      setYawSpeed(out_x);
-      movePitch();
-    }
     if (kDebug) {
       PrintGrid(pixels);
 
@@ -560,26 +443,30 @@ void turretLoop() {
       Serial.print("output y: ");
       Serial.print(out_y);
       Serial.print("\n");
+
+      Serial.print("pitch speed: ");
+      Serial.print(pitchSpeed);
+      Serial.print("\n");
+
+      Serial.print("pitch servo val: ");
+      Serial.print(pitchServoVal);
+      Serial.print("\n");
+
+      Serial.print("yaw servo val: ");
+      Serial.print(yawServoVal);
+      Serial.print("\n");
+      Serial.print("\n");
+      Serial.print("\n");
+
+      // Don't dump to serial so fast we can't read it.
+      delay(500);
     }
-  }
-
-  if (kDebug) {
-    PrintGrid(pixels);
-
-    Serial.print("pitch speed: ");
-    Serial.print(pitchSpeed);
-    Serial.print("\n");
-
-    Serial.print("pitch servo val: ");
-    Serial.print(pitchServoVal);
-    Serial.print("\n");
-
-    Serial.print("yaw servo val: ");
-    Serial.print(yawServoVal);
-    Serial.print("\n");
-    Serial.print("\n");
-    Serial.print("\n");
-
-    delay(3000);
+  } else {
+    if (IrReceiver.decode()) {
+      int command = IrReceiver.decodedIRData.command;
+      IrReceiver.resume();
+      HandleCommand(command);
+    }
+    delay(5);
   }
 }

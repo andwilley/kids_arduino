@@ -1,9 +1,9 @@
 #include "src/turret.h"
 
 void setup() {
-  turretSetup();
+  TurretSetup();
 }
 
 void loop() {
-  turretLoop();
+  TurretLoop();
 }

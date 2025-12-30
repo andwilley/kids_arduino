@@ -1,5 +1,5 @@
-#ifndef TURRET_TURRET
-#define TURRET_TURRET
+#ifndef TURRET
+#define TURRET
 
 #include "point.h"
 #include <Adafruit_AMG88xx.h>
@@ -8,8 +8,8 @@
 
 namespace turret {
 
-void TurretSetup();
-void TurretLoop();
+void Setup();
+void Loop();
 
 // Turn on debug logging. introduces latency.
 constexpr bool kDebug = true;
@@ -59,4 +59,4 @@ Point<float> FindHeatCenter(float *temps, size_t size);
 
 } // namespace turret
 
-#endif // TURRET_TURRET
+#endif // TURRET

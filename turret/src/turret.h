@@ -1,10 +1,12 @@
-#ifndef TURRET
-#define TURRET
+#ifndef TURRET_TURRET
+#define TURRET_TURRET
 
+#include "point.h"
 #include <Adafruit_AMG88xx.h>
 #ifdef GMOCK_FLAG
-#include <cstddef>
 #endif
+
+namespace turret {
 
 void TurretSetup();
 void TurretLoop();
@@ -17,7 +19,6 @@ constexpr int kPitchMax = 115;
 constexpr int kPitchMin = 35;
 constexpr int kPitchInit = (kPitchMax + kPitchMin) / 2 + kPitchMin;
 
-constexpr int kStopSpeed = 90;
 // time to activate the motor to fire, in millis
 constexpr int kRollPrecision = 158;
 constexpr int kRollSpeed = 90;
@@ -54,57 +55,8 @@ constexpr float kBackgroundTemp = 21.5;
 // Degrees above "background" to consider for aquisition.
 constexpr float kTempThreashold = 1.5;
 
-template <typename T> struct Point {
-  T x;
-  T y;
-
-  Point operator+(Point other) { return {.x = x + other.x, .y = y + other.y}; }
-  Point operator-(Point other) { return {.x = x - other.x, .y = y - other.y}; }
-  Point operator*(const T rhs) { return {.x = x * rhs, .y = y * rhs}; }
-  Point operator/(const T divisor) {
-    return {.x = x / divisor, .y = y / divisor};
-  }
-  void operator+=(Point other) {
-    x += other.x;
-    y += other.y;
-  }
-  void operator-=(Point other) {
-    x -= other.x;
-    y -= other.y;
-  }
-
-  bool operator==(Point other) { return x == other.x && y == other.y; }
-  bool operator!=(Point other) { return x != other.x || y != other.y; }
-};
-
 Point<float> FindHeatCenter(float *temps, size_t size);
 
-template <typename T> Point<T> ApplyTolerance(const Point<T> &error) {
-  if (abs(error.x) > kErrorToleranceX && abs(error.y) > kErrorToleranceY) {
-    return error;
-  }
+} // namespace turret
 
-  T adjusted_x = error.x;
-  T adjusted_y = error.y;
-
-  if (abs(error.x) < kErrorToleranceX) {
-    adjusted_x = T(0);
-  }
-  if (abs(error.y) < kErrorToleranceY) {
-    adjusted_y = T(0);
-  }
-  return {
-      .x = adjusted_x,
-      .y = adjusted_y,
-  };
-}
-
-template <typename T> T Clamp(T val, T min, T max) {
-  if (val < min)
-    return min;
-  if (val > max)
-    return max;
-  return val;
-}
-
-#endif // TURRET
+#endif // TURRET_TURRET

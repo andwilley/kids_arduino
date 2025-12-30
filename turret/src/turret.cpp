@@ -7,8 +7,10 @@
 //  LIBRARIES  //
 //////////////////////////////////////////////////
 #include "bitmask_set.h"
+#include "point.h"
 #include "ring_buffer_queue.h"
 #include "turret.h"
+#include "turret_math.h"
 #include <Adafruit_AMG88xx.h>
 #include <Arduino.h>
 #include <IRremote.hpp>
@@ -38,20 +40,19 @@
 
 /*
  * TODO
- * *   class for servo control and memory. maybe different for continuous vs
- *     standard? Keep current setting, previous settings, methods to move at
- *     a given speed and set to particular angle (type depending). Should get
- *     rid of a lot of the variables below.
+ * *   implement continuous integral movement in fixed servo class
  * *   class for the PID math
  * *   class for the heat sensor, consilidate work on that data source,
  *     including finding the heat center, finding the highest value, thresholds,
  *     etc.
- * *   separate file for utilities like traversing a 1D grid and Clamp
+ * *   move utilities like traversing a 1D grid to turret_math.h
  * *   class for debug logging. perhaps include levels? Ability to write to
  *     serial and control with flags and env vars.
- * *   class for Point<T>
- * *   swap in esp32 servo library
  */
+
+using turret_math::Clamp;
+
+namespace turret {
 
 //////////////////////////////////////////////////
 //  PINS AND PARAMETERS  //
@@ -70,10 +71,6 @@ int pitchServoVal = kPitchInit;
 // with 90 as the zero value [0, 180].
 int yawServoVal = 90;
 int rollServoVal = 90;
-
-int lastYawServoVal = 90;
-int lastPitchServoVal = 90;
-int lastRollServoVal = 90;
 
 //////////////////////////////////////////////////
 // Variables for tracking //
@@ -162,8 +159,7 @@ bool InBounds(int index) {
 }
 
 int Move(Point<int> move, int index) {
-  Point<int> current = ToPoint(index);
-  current += move;
+  Point<int> current = ToPoint(index) + move;
   return InBounds(current) ? Index(current) : -1;
 }
 
@@ -255,53 +251,7 @@ Point<float> FindHeatCenter(float *temps, size_t size) {
 
   Point<float> error = {GridToAngle(x_total / temp_total),
                         GridToAngle(y_total / temp_total)};
-  return ApplyTolerance(error);
-}
-
-void SetYawSpeed(int speed) {
-
-  if (speed == kStopSpeed) {
-    yawServoVal = kStopSpeed;
-    yawServo.write(yawServoVal);
-    return;
-  }
-
-  int signedDeadBand = kYawDeadband;
-  if (speed < kStopSpeed) {
-    signedDeadBand = -1 * kYawDeadband;
-  }
-
-  yawServoVal = speed + kYawDeadband;
-  yawServo.write(yawServoVal);
-}
-
-void SetPitchSpeed(int speed) {
-  // take the requested speed [0, 180] with 90 as stopped, like a continuous
-  // servo. Translate this speed to a combination of movement direction and gaps
-  // between mvmt.
-  pitchSpeed = Clamp(speed, 0, 180);
-  int norm = Clamp(abs(speed - 90), 0, 90);
-  // The old calculation resulted in a step size of [299, 300], which is
-  // far too slow. This new calculation maps the speed to a step size
-  // from kMaxPitchStep down to 0.
-  pitchStepSize = round(kMaxPitchStep * (1.0 - (float(norm) / 90.0)));
-}
-
-// Check if the pitch servo should be moving, and move it
-void MovePitch() {
-  if (pitchSpeed == 90) {
-    return;
-  }
-  if (millis() > lastPitchMoveMs + pitchStepSize) {
-    lastPitchMoveMs = millis();
-    if (pitchSpeed > 90) {
-      pitchServoVal++;
-    } else {
-      pitchServoVal--;
-    }
-    pitchServoVal = Clamp(pitchServoVal, kPitchMin, kPitchMax);
-    pitchServo.write(pitchServoVal);
-  }
+  return error.ApplyTolerance(kErrorToleranceX, kErrorToleranceY);
 }
 
 void LeftMove() {}
@@ -470,3 +420,5 @@ void TurretLoop() {
     delay(5);
   }
 }
+
+} // namespace turret

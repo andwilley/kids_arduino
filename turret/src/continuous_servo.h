@@ -2,43 +2,53 @@
 #define TURRET_CONTINUOUS_SERVO
 
 #include "servo_constants.h"
+#include "turret_math.h"
 #include <ESP32Servo.h>
 
 namespace turret_continuous_servo {
 
+using turret_math::Clamp;
+using turret_servo_constants::kMaxNegativeSpeed;
+using turret_servo_constants::kMaxPositiveSpeed;
+using turret_servo_constants::kStopSpeed;
+
 class ContinuousServo {
 public:
   ContinuousServo(int pin, int dead_band = 0)
-      : _pin(pin), _dead_band(dead_band) {}
+      : pin_(pin), dead_band_(dead_band) {}
 
   ContinuousServo(const ContinuousServo &s) = delete;
   ContinuousServo &operator=(const ContinuousServo &s) = delete;
 
-  void Init() { _servo.attach(_pin); }
+  void Init() { servo_.attach(pin_); }
 
-  void SetSpeed(int speed);
+  void SetSpeed(int input_value);
 
 private:
-  int _pin;
-  int _dead_band;
-  int _current_value = turret_servo_constants::kStopSpeed;
-  Servo _servo;
+  int pin_;
+  int dead_band_;
+
+  int current_value_ = kStopSpeed;
+  Servo servo_;
+
+  void Write(int value) {
+    current_value_ = Clamp(value, kMaxNegativeSpeed, kMaxPositiveSpeed);
+    servo_.write(current_value_);
+  }
 };
 
-void ContinuousServo::SetSpeed(int speed) {
-  if (speed == turret_servo_constants::kStopSpeed) {
-    _current_value = turret_servo_constants::kStopSpeed;
-    _servo.write(_current_value);
+void ContinuousServo::SetSpeed(int input_value) {
+  if (input_value == kStopSpeed) {
+    Write(kStopSpeed);
     return;
   }
 
-  int signedDeadBand = _dead_band;
-  if (speed < turret_servo_constants::kStopSpeed) {
-    signedDeadBand = -1 * _dead_band;
+  int signed_dead_band = dead_band_;
+  if (input_value < kStopSpeed) {
+    signed_dead_band = -1 * dead_band_;
   }
 
-  _current_value = speed + _dead_band;
-  _servo.write(_current_value);
+  Write(input_value + signed_dead_band);
 }
 
 } // namespace turret_continuous_servo

@@ -105,7 +105,7 @@ void HomeServos() {
   delay(20);
 }
 
-void TurretSetup() {
+void Setup() {
   Serial.begin(9600);
   Serial.println(F("AMG88xx test"));
 
@@ -349,7 +349,7 @@ void RotateError90Cw(Point<float> &error) {
   error.y = -temp_x;
 }
 
-void TurretLoop() {
+void Loop() {
   Point<float> current_error = {0.0, 0.0};
   int out_x = 0;
   int out_y = 0;

@@ -1,9 +1,10 @@
-#ifndef BITMASK_SET
-#define BITMASK_SET
+#ifndef TURRET_BITMASK_SET
+#define TURRET_BITMASK_SET
 
-#include <string.h>
 #include <stddef.h>
 #include <stdint.h>
+
+namespace turret_bitmask_set {
 
 template <size_t S> class BitmaskSet {
 public:
@@ -36,4 +37,6 @@ template <size_t S> void BitmaskSet<S>::Set(size_t index, bool high) {
   }
 }
 
-#endif // BITMASK_SET
+} // namespace turret_bitmask_set
+
+#endif // TURRET_BITMASK_SET

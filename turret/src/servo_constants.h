@@ -1,5 +1,5 @@
-#ifndef TURRET_SERVO_CONSTANTS
-#define TURRET_SERVO_CONSTANTS
+#ifndef TURRET_SERVO_CONSTANTS_H_
+#define TURRET_SERVO_CONSTANTS_H_
 
 #include <ESP32Servo.h>
 
@@ -11,4 +11,4 @@ constexpr int kMaxPositiveSpeed = 180;
 
 } // namespace turret_servo_constants
 
-#endif // TURRET_SERVO_CONSTANTS
+#endif // TURRET_SERVO_CONSTANTS_H_

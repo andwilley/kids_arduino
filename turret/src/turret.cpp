@@ -40,12 +40,10 @@
 
 /*
  * TODO
- * *   implement continuous integral movement in fixed servo class
  * *   class for the PID math
  * *   class for the heat sensor, consilidate work on that data source,
  *     including finding the heat center, finding the highest value, thresholds,
- *     etc.
- * *   move utilities like traversing a 1D grid to turret_math.h
+ *     grid index (float) to angle, etc.
  * *   class for debug logging. perhaps include levels? Ability to write to
  *     serial and control with flags and env vars.
  */

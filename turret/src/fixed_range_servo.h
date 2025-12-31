@@ -1,5 +1,5 @@
-#ifndef TURRET_FIXED_RANGE_SERVO
-#define TURRET_FIXED_RANGE_SERVO
+#ifndef TURRET_FIXED_RANGE_SERVO_H_
+#define TURRET_FIXED_RANGE_SERVO_H_
 
 #include "servo_constants.h"
 #include "turret_math.h"
@@ -87,4 +87,4 @@ void FixedRangeServo::Update(uint64_t current_micros) {
 
 } // namespace turret_fixed_range_servo
 
-#endif // TURRET_FIXED_RANGE_SERVO
+#endif // TURRET_FIXED_RANGE_SERVO_H_

@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <cstring>
 
-namespace turret_bitmask_set {
+namespace turret {
 
 template <size_t S> class BitmaskSet {
 public:

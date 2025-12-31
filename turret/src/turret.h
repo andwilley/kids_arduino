@@ -11,6 +11,10 @@ namespace turret {
 void Setup();
 void Loop();
 
+constexpr int kYawServoPin = 6;
+constexpr int kPitchServoPin = 7;
+constexpr int kRollServoPin = 8;
+
 // Turn on debug logging. introduces latency.
 constexpr bool kDebug = true;
 
@@ -40,13 +44,6 @@ constexpr float kI = 0.0;
 // controller more sensitive.
 constexpr int kControlRange = 100;
 
-// Grid constants, based on the sensors in the termal grid.
-constexpr int kGridSize = 8;
-// This should never change.
-constexpr int kNeighborSize = 8;
-// Coarsly measured
-constexpr float kSensorFov = 31.5;
-constexpr float kGridMidPt = (kGridSize - 1) / 2.0f;
 constexpr float kGridToAngle = kSensorFov / kGridMidPt;
 
 // TODO: Eventually find these dynamically on startup and re-eval periodically.
@@ -54,8 +51,6 @@ constexpr float kGridToAngle = kSensorFov / kGridMidPt;
 constexpr float kBackgroundTemp = 21.5;
 // Degrees above "background" to consider for aquisition.
 constexpr float kTempThreashold = 1.5;
-
-Point<float> FindHeatCenter(float *temps, size_t size);
 
 } // namespace turret
 

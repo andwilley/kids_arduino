@@ -1,3 +1,5 @@
+#include "continuous_servo.h"
+#include "fixed_range_servo.h"
 #ifdef GMOCK_FLAG
 #include "Arduino.h"
 #include <cmath>
@@ -11,10 +13,8 @@
 #include "ring_buffer_queue.h"
 #include "turret.h"
 #include "turret_math.h"
-#include <Adafruit_AMG88xx.h>
 #include <Arduino.h>
 #include <IRremote.hpp>
-#include <Servo.h>
 
 // IR transmission type
 #define DECODE_NEC
@@ -48,209 +48,28 @@
  *     serial and control with flags and env vars.
  */
 
-using turret_math::Clamp;
-
 namespace turret {
 
-//////////////////////////////////////////////////
-//  PINS AND PARAMETERS  //
-//////////////////////////////////////////////////
-
-Adafruit_AMG88xx heat_sensor;
-float pixels[AMG88xx_PIXEL_ARRAY_SIZE];
-
-Servo yawServo;
-Servo pitchServo;
-Servo rollServo;
-
-// [0, 180], defines the angle of the servo, with 0 being down.
-int pitchServoVal = kPitchInit;
-// yaw and roll servos are continuous. Input values are positive/negative speeds
-// with 90 as the zero value [0, 180].
-int yawServoVal = 90;
-int rollServoVal = 90;
-
-//////////////////////////////////////////////////
-// Variables for tracking //
-//////////////////////////////////////////////////
+ContinuousServo yawServo(kYawServoPin, kYawDeadband);
+FixedRangeServo pitchServo(kPitchServoPin, kPitchInit, kPitchMin, kPitchMax);
+ContinuousServo rollServo(kRollServoPin);
 
 bool isTracking = false;
 
-// The last time pitch moved. Track this to move it with varying pauses to
-// simulate speed.
-int lastPitchMoveMs = 0;
-// Requested pitch speed [0, 180] with 90 stopped.
-int pitchSpeed = 90;
-// A ms delay that translates to effective servo speed, bigger is slower.
-int pitchStepSize = 0;
-// Tune this for best results. This sets the upper bound for linear
-// interpolation.
-constexpr int kMaxPitchStep = 300;
-
-uint64_t last_millis = 0;
-Point<float> last_error = {.x = 0.0, .y = 0.0};
-
-//////////////////////////////////////////////////
-//  SETUP  //
-//////////////////////////////////////////////////
-
-void HomeServos() {
-  yawServo.write(kStopSpeed);
-  delay(20);
-  rollServo.write(kStopSpeed);
-  delay(20);
-  pitchServo.write(pitchServoVal);
-  delay(20);
-}
+uint64_t last_micros = 0;
 
 void Setup() {
   Serial.begin(9600);
-  Serial.println(F("AMG88xx test"));
 
-  bool status;
+  last_micros = micros();
 
-  // default settings
-  status = heat_sensor.begin();
-  if (!status) {
-    Serial.println("Could not find a valid AMG88xx sensor, check wiring!");
-  }
+  yawServo.Init();
+  pitchServo.Init(last_micros);
+  rollServo.Init();
 
-  Serial.println("-- Thermistor Test --");
-
-  Serial.println();
-
-  delay(100); // let sensor boot up
-
-  yawServo.attach(6);
-  pitchServo.attach(7);
-  rollServo.attach(8);
-
-  // Start the receiver and if not 3. parameter specified, take LED_BUILTIN pin
-  // from the internal boards definition as default feedback LED
   IrReceiver.begin(5, ENABLE_LED_FEEDBACK);
-
-  Serial.print(F("Ready to receive IR signals of protocols: "));
-
-  last_millis = millis();
-
-  HomeServos();
 }
 
-////////////////////////////////////////////////
-//  L O O P  //
-////////////////////////////////////////////////
-
-int Col(int index) { return index % kGridSize; }
-
-int Row(int index) { return index / kGridSize; }
-
-Point<int> ToPoint(int index) { return {.x = Col(index), .y = Row(index)}; }
-
-int Index(Point<int> p) { return p.y * kGridSize + p.x; }
-
-bool InBounds(Point<int> p) {
-  return (p.x < kGridSize && p.x >= 0) && (p.y < kGridSize && p.y >= 0);
-}
-
-bool InBounds(int index) {
-  return index >= 0 && index < AMG88xx_PIXEL_ARRAY_SIZE;
-}
-
-int Move(Point<int> move, int index) {
-  Point<int> current = ToPoint(index) + move;
-  return InBounds(current) ? Index(current) : -1;
-}
-
-// These sets can't be bigger than the search space.
-BitmaskSet<AMG88xx_PIXEL_ARRAY_SIZE> visited;
-RingBufferQueue<int, AMG88xx_PIXEL_ARRAY_SIZE> q;
-
-void GetNeighbors(int index, int *neighbors_out) {
-  // up left
-  neighbors_out[0] = Move({.x = -1, .y = -1}, index);
-  // up
-  neighbors_out[1] = InBounds(index - kGridSize) ? index - kGridSize : -1;
-  // up right
-  neighbors_out[2] = Move({.x = 1, .y = -1}, index);
-  // right
-  neighbors_out[3] = Move({.x = 1, .y = 0}, index);
-  // down right
-  neighbors_out[4] = Move({.x = 1, .y = 1}, index);
-  // down
-  neighbors_out[5] = InBounds(index + kGridSize) ? index + kGridSize : -1;
-  // down left
-  neighbors_out[6] = Move({.x = -1, .y = 1}, index);
-  // left
-  neighbors_out[7] = Move({.x = -1, .y = 0}, index);
-}
-
-// grid represents a continuous range over the columns or rows, rather than
-// discrete int columns.
-float GridToAngle(float grid) {
-  float norm = grid - kGridMidPt;
-  return norm * kGridToAngle;
-}
-
-Point<float> FindHeatCenter(float *temps, size_t size) {
-  visited.Clear();
-  q.Clear();
-
-  // Get the index with the highest temp
-  int max_i = 0;
-  float max = kBackgroundTemp;
-  for (int i = 0; i < size; ++i) {
-    if (temps[i] > kBackgroundTemp + kTempThreashold && temps[i] > max) {
-      max_i = i;
-      max = temps[i];
-    }
-  }
-
-  // No temps above threshold
-  if (max == kBackgroundTemp) {
-    return {.x = 0.0, .y = 0.0};
-  }
-
-  // BFS
-  bool success = q.Enqueue(max_i);
-  if (!success) {
-    return {.x = 0.0, .y = 0.0};
-  }
-
-  visited.Set(max_i);
-
-  float x_total = 0;
-  float y_total = 0;
-  float temp_total = 0;
-
-  while (!q.Empty()) {
-    int current = q.Dequeue();
-    float cur_temp = temps[current];
-
-    // Sums for weighted average
-    x_total += cur_temp * Col(current);
-    y_total += cur_temp * Row(current);
-    temp_total += cur_temp;
-
-    int neighbors[kNeighborSize];
-    GetNeighbors(current, neighbors);
-    for (int i = 0; i < kNeighborSize; ++i) {
-      int neighbor_idx = neighbors[i];
-      if (neighbor_idx != -1 && !visited.Contains(neighbor_idx) &&
-          temps[neighbor_idx] > kBackgroundTemp + kTempThreashold) {
-        visited.Set(neighbor_idx);
-        q.Enqueue(neighbor_idx);
-      }
-    }
-  }
-
-  if (temp_total == 0) {
-    return {.x = 0.0, .y = 0.0};
-  }
-
-  Point<float> error = {GridToAngle(x_total / temp_total),
-                        GridToAngle(y_total / temp_total)};
-  return error.ApplyTolerance(kErrorToleranceX, kErrorToleranceY);
-}
 
 void LeftMove() {}
 
@@ -319,23 +138,11 @@ void HandleCommand(int command) {
   }
 }
 
-void PrintGrid(float *temps) {
-  for (int i = 1; i <= AMG88xx_PIXEL_ARRAY_SIZE; ++i) {
-    float temp = temps[i - 1];
-    Serial.print((int)temp);
-    Serial.print(", ");
-    if (i % 8 == 0) {
-      Serial.println();
-    }
-  }
-  Serial.println();
-}
-
 uint64_t DeltaT() {
-  uint64_t cur = millis();
-  uint64_t d_t = cur - last_millis;
-  last_millis = cur;
-  return d_t == 0 ? 1 : d_t;
+  uint64_t cur = micros();
+  uint64_t dt = cur - last_micros;
+  last_micros = cur;
+  return dt == 0 ? 1 : dt;
 }
 
 // The sensor is rotated 90 degrees clockwise. This function transforms the

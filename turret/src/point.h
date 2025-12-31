@@ -1,6 +1,8 @@
 #ifndef TURRET_POINT_H_
 #define TURRET_POINT_H_
 
+namespace turret {
+
 template <typename T> struct Point {
   T x;
   T y;
@@ -8,9 +10,11 @@ template <typename T> struct Point {
   Point operator+(const Point &rhs) const {
     return {.x = x + rhs.x, .y = y + rhs.y};
   }
+  Point operator+(const T &rhs) const { return {.x = x + rhs, .y = y + rhs}; }
   Point operator-(const Point &rhs) const {
     return {.x = x - rhs.x, .y = y - rhs.y};
   }
+  Point operator-(const T &rhs) const { return {.x = x - rhs, .y = y - rhs}; }
   Point operator*(const T &rhs) const { return {.x = x * rhs, .y = y * rhs}; }
   Point operator/(const T &rhs) const { return {.x = x / rhs, .y = y / rhs}; }
   void operator+=(const Point &rhs) {
@@ -48,5 +52,7 @@ Point<T> Point<T>::ApplyTolerance(int xTolerance, int yTolerance) const {
       .y = adjusted_y,
   };
 }
+
+} // namespace turret
 
 #endif // TURRET_POINT_H_

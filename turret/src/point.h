@@ -1,5 +1,5 @@
-#ifndef TURRET_POINT
-#define TURRET_POINT
+#ifndef TURRET_POINT_H_
+#define TURRET_POINT_H_
 
 template <typename T> struct Point {
   T x;
@@ -49,4 +49,4 @@ Point<T> Point<T>::ApplyTolerance(int xTolerance, int yTolerance) const {
   };
 }
 
-#endif // TURRET_POINT
+#endif // TURRET_POINT_H_

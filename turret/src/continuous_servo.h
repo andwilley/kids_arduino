@@ -1,5 +1,5 @@
-#ifndef TURRET_CONTINUOUS_SERVO
-#define TURRET_CONTINUOUS_SERVO
+#ifndef TURRET_CONTINUOUS_SERVO_H_
+#define TURRET_CONTINUOUS_SERVO_H_
 
 #include "servo_constants.h"
 #include "turret_math.h"
@@ -52,3 +52,5 @@ void ContinuousServo::SetSpeed(int input_value) {
 }
 
 } // namespace turret_continuous_servo
+
+#endif // TURRET_CONTINUOUS_SERVO_H_

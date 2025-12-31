@@ -1,5 +1,5 @@
-#ifndef TURRET_BITMASK_SET
-#define TURRET_BITMASK_SET
+#ifndef TURRET_BITMASK_SET_H_
+#define TURRET_BITMASK_SET_H_
 
 #include <stddef.h>
 #include <stdint.h>
@@ -40,4 +40,4 @@ template <size_t S> void BitmaskSet<S>::Set(size_t index, bool high) {
 
 } // namespace turret_bitmask_set
 
-#endif // TURRET_BITMASK_SET
+#endif // TURRET_BITMASK_SET_H_

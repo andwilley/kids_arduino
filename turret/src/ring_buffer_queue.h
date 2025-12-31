@@ -1,5 +1,5 @@
-#ifndef TURRET_RING_BUFFER_QUEUE
-#define TURRET_RING_BUFFER_QUEUE
+#ifndef TURRET_RING_BUFFER_QUEUE_H_
+#define TURRET_RING_BUFFER_QUEUE_H_
 
 #include <stddef.h>
 
@@ -61,4 +61,4 @@ template <typename T, size_t S> bool RingBufferQueue<T, S>::Full() {
 
 } // namespace turret_ring_buffer_queue
 
-#endif // TURRET_RING_BUFFER_QUEUE
+#endif // TURRET_RING_BUFFER_QUEUE_H_

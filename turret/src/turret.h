@@ -1,5 +1,5 @@
-#ifndef TURRET
-#define TURRET
+#ifndef TURRET_H_
+#define TURRET_H_
 
 #include "point.h"
 #include <Adafruit_AMG88xx.h>
@@ -59,4 +59,4 @@ Point<float> FindHeatCenter(float *temps, size_t size);
 
 } // namespace turret
 
-#endif // TURRET
+#endif // TURRET_H_

@@ -4,10 +4,12 @@
 namespace turret_math {
 
 template <typename T> T Clamp(T val, T min, T max) {
-  if (val < min)
+  if (val < min) {
     return min;
-  if (val > max)
+  }
+  if (val > max) {
     return max;
+  }
   return val;
 }
 

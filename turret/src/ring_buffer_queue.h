@@ -8,7 +8,7 @@ namespace turret_ring_buffer_queue {
 // A ring buffer de/queue.
 template <typename T, size_t S> class RingBufferQueue {
 public:
-  RingBufferQueue() : head(0), tail(0) {};
+  RingBufferQueue() : head_(0), tail_(0) {};
 
   bool Enqueue(T item);
 
@@ -21,9 +21,11 @@ public:
   void Clear();
 
 private:
-  size_t head;
-  size_t tail;
-  T queue[S];
+  // First item in the queue, occupied unless the queue is empty
+  size_t head_;
+  // The next empty slot in the queue
+  size_t tail_;
+  T queue_[S];
 
   size_t wrap(size_t index) { return index % S; }
 };
@@ -32,30 +34,29 @@ template <typename T, size_t S> bool RingBufferQueue<T, S>::Enqueue(T item) {
   if (Full()) {
     return false;
   }
-  size_t next_tail = wrap(tail + 1);
-  queue[tail] = item;
-  tail = next_tail;
+  queue_[tail_] = item;
+  tail_ = wrap(tail_ + 1);
   return true;
 }
 
 // UB if the queue is empty, caller must verify.
 template <typename T, size_t S> T RingBufferQueue<T, S>::Dequeue() {
-  T item = queue[head];
-  head = wrap(head + 1);
+  T item = queue_[head_];
+  head_ = wrap(head_ + 1);
   return item;
 }
 
 template <typename T, size_t S> void RingBufferQueue<T, S>::Clear() {
-  head = 0;
-  tail = 0;
+  head_ = 0;
+  tail_ = 0;
 }
 
 template <typename T, size_t S> bool RingBufferQueue<T, S>::Empty() {
-  return head == tail;
+  return head_ == tail_;
 }
 
 template <typename T, size_t S> bool RingBufferQueue<T, S>::Full() {
-  return wrap(tail + 1) == head;
+  return wrap(tail_ + 1) == head_;
 }
 
 } // namespace turret_ring_buffer_queue

@@ -32,11 +32,11 @@ template <typename T> struct Point {
   bool operator==(const Point &rhs) const { return x == rhs.x && y == rhs.y; }
   bool operator!=(const Point &rhs) const { return x != rhs.x || y != rhs.y; }
 
-  Point ApplyTolerance(int xTolerance, int yTolerance) const;
+  Point ApplyTolerance(T xTolerance, T yTolerance) const;
 };
 
 template <typename T>
-Point<T> Point<T>::ApplyTolerance(int xTolerance, int yTolerance) const {
+Point<T> Point<T>::ApplyTolerance(T xTolerance, T yTolerance) const {
   if (abs(x) > xTolerance && abs(y) > yTolerance) {
     return *this;
   }

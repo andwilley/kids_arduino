@@ -57,9 +57,10 @@ ContinuousServo yawServo(kYawServoPin, kYawDeadband);
 FixedRangeServo pitchServo(kPitchServoPin, kPitchInit, kPitchMin, kPitchMax);
 ContinuousServo rollServo(kRollServoPin);
 HeatSensor heat_sensor(kBackgroundTemp, kTempThreashold, kSensorFov);
-Pid<Point<float>> pid(kP, kI, kD);
+Pid<float> yaw_pid(kYawKs);
+Pid<float> pitch_pid(kPitchKs);
 
-bool isTracking = false;
+bool isTracking = true;
 uint64_t last_micros = 0;
 
 void Setup() {
@@ -174,10 +175,11 @@ void Loop() {
         current_error.ApplyTolerance(kErrorToleranceX, kErrorToleranceY);
     RotateError90Cw(current_error);
 
-    Point<float> output = pid.Compute(current_error, dt);
+    float yaw_output = yaw_pid.Compute(current_error.x, dt);
+    float pitch_output = pitch_pid.Compute(current_error.y, dt);
 
-    yaw_out = MapToServo(output.x, -kControlRange, kControlRange);
-    pitch_out = MapToServo(output.y, -kControlRange, kControlRange);
+    yaw_out = MapToServo(yaw_output, -kControlRange, kControlRange);
+    pitch_out = MapToServo(pitch_output, -kControlRange, kControlRange);
     pitchServo.SetSpeed(pitch_out);
     yawServo.SetSpeed(yaw_out);
 

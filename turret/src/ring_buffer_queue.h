@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 
-namespace turret_ring_buffer_queue {
+namespace turret {
 
 // A ring buffer de/queue.
 template <typename T, size_t S> class RingBufferQueue {

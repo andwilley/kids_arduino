@@ -3,7 +3,7 @@
 
 #include <ESP32Servo.h>
 
-namespace turret_servo_constants {
+namespace turret {
 
 constexpr int kStopSpeed = 90;
 constexpr int kMaxNegativeSpeed = 0;

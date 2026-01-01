@@ -5,15 +5,9 @@
 #include "turret_math.h"
 #include <ESP32Servo.h>
 
-namespace turret_fixed_range_servo {
-
-using turret_math::Clamp;
-using turret_servo_constants::kMaxNegativeSpeed;
-using turret_servo_constants::kMaxPositiveSpeed;
-using turret_servo_constants::kStopSpeed;
+namespace turret {
 
 constexpr double kMaxDeltaT = 0.1;
-constexpr double kMicrosPerSecond = 1000000.0;
 
 class FixedRangeServo {
 public:
@@ -55,6 +49,8 @@ private:
         Clamp(static_cast<int>(round(angle)), min_angle_, max_angle_);
     servo_.write(current_angle_);
   }
+
+  static constexpr double kMicrosPerSecond = 1000000.0;
 };
 
 void FixedRangeServo::SetSpeed(float input_value) {
@@ -85,6 +81,6 @@ void FixedRangeServo::Update(uint64_t current_micros) {
   }
 }
 
-} // namespace turret_fixed_range_servo
+} // namespace turret
 
 #endif // TURRET_FIXED_RANGE_SERVO_H_

@@ -5,12 +5,7 @@
 #include "turret_math.h"
 #include <ESP32Servo.h>
 
-namespace turret_continuous_servo {
-
-using turret_math::Clamp;
-using turret_servo_constants::kMaxNegativeSpeed;
-using turret_servo_constants::kMaxPositiveSpeed;
-using turret_servo_constants::kStopSpeed;
+namespace turret {
 
 class ContinuousServo {
 public:

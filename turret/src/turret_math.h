@@ -14,6 +14,6 @@ template <typename T> T Clamp(T val, T min, T max) {
   return val;
 }
 
-} // namespace turret_math
+} // namespace turret
 
 #endif // TURRET_MATH_H_

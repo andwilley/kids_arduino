@@ -59,6 +59,6 @@ template <typename T, size_t S> bool RingBufferQueue<T, S>::Full() {
   return wrap(tail_ + 1) == head_;
 }
 
-} // namespace turret_ring_buffer_queue
+} // namespace turret
 
 #endif // TURRET_RING_BUFFER_QUEUE_H_

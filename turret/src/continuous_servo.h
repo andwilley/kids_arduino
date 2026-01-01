@@ -46,6 +46,6 @@ void ContinuousServo::SetSpeed(int input_value) {
   Write(input_value + signed_dead_band);
 }
 
-} // namespace turret_continuous_servo
+} // namespace turret
 
 #endif // TURRET_CONTINUOUS_SERVO_H_

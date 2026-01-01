@@ -16,6 +16,9 @@ template <typename T> struct Point {
   }
   Point operator-(const T &rhs) const { return {.x = x - rhs, .y = y - rhs}; }
   Point operator*(const T &rhs) const { return {.x = x * rhs, .y = y * rhs}; }
+  Point operator*(const Point &rhs) const {
+    return {.x = x * rhs.x, .y = y * rhs.y};
+  }
   Point operator/(const T &rhs) const { return {.x = x / rhs, .y = y / rhs}; }
   void operator+=(const Point &rhs) {
     x += rhs.x;

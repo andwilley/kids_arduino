@@ -16,15 +16,12 @@ public:
   }
 
   // Iterator support for range-based loops
-  Point<C> *begin() const { return points_; }
-  Point<C> *end() const { return points_ + count_; }
+  const Point<C> *begin() const { return points_; }
+  const Point<C> *end() const { return points_ + count_; }
 
 private:
   Point<C> points_[8];
   uint8_t count_ = 0;
-
-  static constexpr Point<int> dirs[8] = {{0, -1}, {1, -1}, {1, 0},  {1, 1},
-                                         {0, 1},  {-1, 1}, {-1, 0}, {-1, -1}};
 };
 
 // TODO: evaluate if these are needed first:
@@ -41,8 +38,10 @@ public:
 
   Grid2d() {}
 
+  // Caller must verify point is in bounds.
   T &At(const Point<C> &p) { return data_[IndexOf(p)]; }
 
+  // Caller must verify point is in bounds.
   const T &At(const Point<C> &p) const { return data_[IndexOf(p)]; }
 
   bool InBounds(const Point<C> &p) const {
@@ -52,15 +51,15 @@ public:
   // Caller must verify index is in bounds.
   static Point<C> PointFrom(size_t index) {
     return {
-      .x = static_cast<C>(index % kCols), .y = static_cast<C>(index / kCols),
-    }
+        .x = static_cast<C>(index % kCols),
+        .y = static_cast<C>(index / kCols),
+    };
   }
 
   // Caller must verify point is in bounds.
   static size_t IndexOf(const Point<C> &p) {
     return static_cast<size_t>(p.y) * kCols + static_cast<size_t>(p.x);
   }
-
 
   T *data() { return data_; }
   const T *data() const { return data_; }
@@ -81,6 +80,9 @@ public:
 
 private:
   T data_[kSize];
+
+  const Point<int> dirs[8] = {{0, -1}, {1, -1}, {1, 0},  {1, 1},
+                              {0, 1},  {-1, 1}, {-1, 0}, {-1, -1}};
 };
 
 template <typename T, typename C, size_t W, size_t H>

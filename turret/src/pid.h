@@ -3,9 +3,15 @@
 
 namespace turret {
 
+struct Ks {
+  float p;
+  float d;
+  float i;
+};
+
 template <typename T> class Pid {
 public:
-  Pid(float kP, float kI, float kD) : kP_(kP), kI_(kI), kD_(kD) {}
+  Pid(Ks ks) : kP_(ks.p), kI_(ks.i), kD_(ks.d) {}
 
   T Compute(T error, uint64_t dt_micros) {
     if (dt_micros == 0) {

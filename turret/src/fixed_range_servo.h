@@ -33,6 +33,9 @@ public:
   // Pass in micros() from the main loop
   void Update(uint64_t micros);
 
+  int MinAngle() { return min_angle_; }
+  int MaxAngle() { return max_angle_; }
+
 private:
   int pin_;
   float current_angle_;

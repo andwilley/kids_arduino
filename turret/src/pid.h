@@ -12,7 +12,7 @@ public:
       return T();
     }
 
-    float dt = static_cast<float>(dt_micros) * kMicrosPerSecond;
+    float dt = static_cast<float>(dt_micros) / kMicrosPerSecond;
 
     T p_term = error * kP_;
 

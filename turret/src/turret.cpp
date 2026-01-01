@@ -1,5 +1,8 @@
 #include "continuous_servo.h"
 #include "fixed_range_servo.h"
+#include "heat_sensor.h"
+#include "pid.h"
+#include "servo_constants.h"
 #ifdef GMOCK_FLAG
 #include "Arduino.h"
 #include <cmath>
@@ -53,9 +56,10 @@ namespace turret {
 ContinuousServo yawServo(kYawServoPin, kYawDeadband);
 FixedRangeServo pitchServo(kPitchServoPin, kPitchInit, kPitchMin, kPitchMax);
 ContinuousServo rollServo(kRollServoPin);
+HeatSensor heat_sensor(kBackgroundTemp, kTempThreashold, kSensorFov);
+Pid<Point<float>> pid(kP, kI, kD);
 
 bool isTracking = false;
-
 uint64_t last_micros = 0;
 
 void Setup() {
@@ -67,9 +71,10 @@ void Setup() {
   pitchServo.Init(last_micros);
   rollServo.Init();
 
+  heat_sensor.Init();
+
   IrReceiver.begin(5, ENABLE_LED_FEEDBACK);
 }
-
 
 void LeftMove() {}
 
@@ -79,11 +84,11 @@ void UpMove() {}
 
 void DownMove() {}
 
-void Fire() {                               // function for firing a single dart
-  rollServo.write(kStopSpeed + kRollSpeed); // start rotating the servo
-  delay(kRollPrecision);       // time for approximately 60 degrees of rotation
-  rollServo.write(kStopSpeed); // stop rotating the servo
-  delay(5);                    // delay for smoothness
+void Fire() { // function for firing a single dart
+  rollServo.SetSpeed(kStopSpeed + kRollSpeed); // start rotating the servo
+  delay(kRollPrecision); // time for approximately 60 degrees of rotation
+  rollServo.SetSpeed(kStopSpeed); // stop rotating the servo
+  delay(5);                       // delay for smoothness
 }
 
 void ToggleTracking() { isTracking = !isTracking; }
@@ -138,11 +143,10 @@ void HandleCommand(int command) {
   }
 }
 
-uint64_t DeltaT() {
-  uint64_t cur = micros();
-  uint64_t dt = cur - last_micros;
-  last_micros = cur;
-  return dt == 0 ? 1 : dt;
+float MapToServo(float value, float from_min, float from_max) {
+  float proportion = (value - from_min) / (from_max - from_min);
+  return kMaxNegativeSpeed +
+         (proportion * (kMaxPositiveSpeed - kMaxNegativeSpeed));
 }
 
 // The sensor is rotated 90 degrees clockwise. This function transforms the
@@ -156,74 +160,35 @@ void RotateError90Cw(Point<float> &error) {
 
 void Loop() {
   Point<float> current_error = {0.0, 0.0};
-  int out_x = 0;
-  int out_y = 0;
-  // read all the pixels
-  heat_sensor.readPixels(pixels);
+  float yaw_out = 0.0;
+  float pitch_out = 0.0;
+  uint64_t current_micros = micros();
+  uint64_t dt = current_micros - last_micros;
+  last_micros = current_micros;
 
   if (isTracking) {
-    current_error = FindHeatCenter(pixels, AMG88xx_PIXEL_ARRAY_SIZE);
+    heat_sensor.Read();
+
+    current_error = heat_sensor.FindHeatCenter();
+    current_error =
+        current_error.ApplyTolerance(kErrorToleranceX, kErrorToleranceY);
     RotateError90Cw(current_error);
 
-    // PID to get to center
-    Point<float> derivative_error = (current_error - last_error) / DeltaT();
-    last_error = current_error;
+    Point<float> output = pid.Compute(current_error, dt);
 
-    Point<float> output = current_error * kP + derivative_error * kD;
-    out_x =
-        map(long(Clamp(int(round(output.x)), -kControlRange, kControlRange)),
-            -kControlRange, kControlRange, 0, 180);
-    out_y =
-        map(long(Clamp(int(round(output.y)), -kControlRange, kControlRange)),
-            -kControlRange, kControlRange, 0, 180);
-    SetPitchSpeed(out_y);
-    SetYawSpeed(out_x);
-    MovePitch();
+    yaw_out = MapToServo(output.x, -kControlRange, kControlRange);
+    pitch_out = MapToServo(output.y, -kControlRange, kControlRange);
+    pitchServo.SetSpeed(pitch_out);
+    yawServo.SetSpeed(yaw_out);
 
-    if (kDebug) {
-      PrintGrid(pixels);
-
-      Serial.print("current error x: ");
-      Serial.print(current_error.x);
-      Serial.print("\n");
-
-      Serial.print("current error y: ");
-      Serial.print(current_error.y);
-      Serial.print("\n");
-
-      Serial.print("output x: ");
-      Serial.print(out_x);
-      Serial.print("\n");
-
-      Serial.print("output y: ");
-      Serial.print(out_y);
-      Serial.print("\n");
-
-      Serial.print("pitch speed: ");
-      Serial.print(pitchSpeed);
-      Serial.print("\n");
-
-      Serial.print("pitch servo val: ");
-      Serial.print(pitchServoVal);
-      Serial.print("\n");
-
-      Serial.print("yaw servo val: ");
-      Serial.print(yawServoVal);
-      Serial.print("\n");
-      Serial.print("\n");
-      Serial.print("\n");
-
-      // Don't dump to serial so fast we can't read it.
-      delay(500);
-    }
   } else {
     if (IrReceiver.decode()) {
       int command = IrReceiver.decodedIRData.command;
       IrReceiver.resume();
       HandleCommand(command);
     }
-    delay(5);
   }
+  pitchServo.Update(current_micros);
 }
 
 } // namespace turret

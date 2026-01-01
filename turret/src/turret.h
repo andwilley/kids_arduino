@@ -21,7 +21,7 @@ constexpr bool kDebug = true;
 // new pitch servo with esp32 nano
 constexpr int kPitchMax = 115;
 constexpr int kPitchMin = 35;
-constexpr int kPitchInit = (kPitchMax + kPitchMin) / 2 + kPitchMin;
+constexpr int kPitchInit = (kPitchMax + kPitchMin) / 2;
 
 // time to activate the motor to fire, in millis
 constexpr int kRollPrecision = 158;
@@ -44,7 +44,7 @@ constexpr float kI = 0.0;
 // controller more sensitive.
 constexpr int kControlRange = 100;
 
-constexpr float kGridToAngle = kSensorFov / kGridMidPt;
+constexpr float kSensorFov = 31.5;
 
 // TODO: Eventually find these dynamically on startup and re-eval periodically.
 // Temperature (C) considered "background", varies by time of year.

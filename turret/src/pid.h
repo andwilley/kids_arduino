@@ -13,29 +13,7 @@ template <typename T> class Pid {
 public:
   Pid(Ks ks) : kP_(ks.p), kI_(ks.i), kD_(ks.d) {}
 
-  T Compute(T error, uint64_t dt_micros) {
-    if (dt_micros == 0) {
-      return T();
-    }
-
-    float dt = static_cast<float>(dt_micros) / kMicrosPerSecond;
-
-    T p_term = error * kP_;
-
-    // Integral term
-    // Simple rectangular integration
-    integral_ = integral_ + (error * dt);
-    T i_term = integral_ * kI_;
-
-    // Derivative term
-    T derivative = (error - last_error_) / dt;
-    T d_term = derivative * kD_;
-
-    // Save state for next iteration
-    last_error_ = error;
-
-    return p_term + i_term + d_term;
-  }
+  T Compute(T error, uint64_t dt_micros);
 
   void Reset() {
     integral_ = T();
@@ -61,6 +39,30 @@ private:
   // For an "intantaneous" difference between the last step and this one.
   T last_error_;
 };
+
+template <typename T> T Pid<T>::Compute(T error, uint64_t dt_micros) {
+  if (dt_micros == 0) {
+    return T();
+  }
+
+  float dt = static_cast<float>(dt_micros) / kMicrosPerSecond;
+
+  T p_term = error * kP_;
+
+  // Integral term
+  // Simple rectangular integration
+  integral_ = integral_ + (error * dt);
+  T i_term = integral_ * kI_;
+
+  // Derivative term
+  T derivative = (error - last_error_) / dt;
+  T d_term = derivative * kD_;
+
+  // Save state for next iteration
+  last_error_ = error;
+
+  return p_term + i_term + d_term;
+}
 
 } // namespace turret
 

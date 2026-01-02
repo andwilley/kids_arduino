@@ -27,9 +27,9 @@ constexpr int kPitchInit = (kPitchMax + kPitchMin) / 2;
 constexpr int kRollPrecision = 158;
 constexpr int kRollSpeed = 90;
 
-// How close to 90 is considered "stopped", needed to overcome static friction
-// of the turret
-constexpr int kYawDeadband = 25;
+// How close to kStopSpeed is considered "stopped", needed to overcome static
+// friction of the turret
+constexpr int kYawDeadband = 9;
 
 // Don't react for very small deviations from 0 error
 constexpr float kErrorToleranceX = 1.0;
@@ -37,13 +37,13 @@ constexpr float kErrorToleranceY = 1.0;
 
 // PID values
 constexpr Ks kYawKs = {
-    .p = 0.045,
-    .d = 0.20,
-    .i = 0.005,
+    .p = 1.00,
+    .d = 0.018,
+    .i = 0.002,
 };
 constexpr Ks kPitchKs = {
-    .p = 5.0,
-    .d = 0.0,
+    .p = 15.0,
+    .d = 2.0,
     .i = 0.0,
 };
 // The range of the output from the PID controller. This is used to map the
@@ -51,13 +51,14 @@ constexpr Ks kPitchKs = {
 // controller more sensitive.
 constexpr int kControlRange = 120;
 
-constexpr float kSensorFov = 31.5;
+constexpr float kSensorFovX = 60.0;
+constexpr float kSensorFovY = 60.0;
 
 // TODO: Eventually find these dynamically on startup and re-eval periodically.
 // Temperature (C) considered "background", varies by time of year.
-constexpr float kBackgroundTemp = 21.5;
+constexpr float kBackgroundTemp = 21.1;
 // Degrees above "background" to consider for aquisition.
-constexpr float kTempThreashold = 2.0;
+constexpr float kTempThreashold = 3.0;
 
 } // namespace turret
 

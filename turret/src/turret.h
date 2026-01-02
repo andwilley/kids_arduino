@@ -32,7 +32,7 @@ constexpr int kRollSpeed = 90;
 constexpr int kYawDeadband = 25;
 
 // Don't react for very small deviations from 0 error
-constexpr float kErrorToleranceX = 0.3;
+constexpr float kErrorToleranceX = 1.0;
 constexpr float kErrorToleranceY = 1.0;
 
 // PID values

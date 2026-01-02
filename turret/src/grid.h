@@ -1,6 +1,7 @@
 #ifndef TURRET_GRID_H_
 #define TURRET_GRID_H_
 
+#include "logger.h"
 #include "point.h"
 #include <stddef.h>
 
@@ -66,16 +67,25 @@ public:
 
   NeighborList<C> Neighbors(Point<C> center);
 
-  void PrintToSerial() {
-    for (int i = 1; i <= kSize; ++i) {
-      float val = data_[i - 1];
-      Serial.print(val);
-      Serial.print(", ");
-      if (i % 8 == 0) {
-        Serial.println();
+  void Print() {
+    char line_buffer[Log.kEffectiveLogLength];
+    for (size_t h = 0; h < kRows; ++h) {
+      size_t offset = 0;
+      for (size_t w = 0; w < kCols; ++w) {
+        size_t remaining = sizeof(line_buffer) - offset;
+        if (remaining < 8) {
+          break;
+        }
+        int written = snprintf(line_buffer + offset, remaining, "%.1f, ",
+                               data_[h * kCols + w]);
+        if (written < 0 || (size_t)written >= remaining) {
+          break;
+        }
+
+        offset += written;
       }
+      Log.Log(kInfo, "[%s]", line_buffer);
     }
-    Serial.println();
   }
 
 private:

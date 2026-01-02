@@ -21,7 +21,7 @@ public:
   void Init() {
     bool status = sensor_.begin();
     if (!status) {
-      Serial.println("Could not find a valid AMG88xx sensor, check wiring!");
+      Log.Log(kInfo, "Could not find a valid AMG88xx sensor, check wiring!");
     }
   }
 
@@ -33,7 +33,7 @@ public:
 
   const Point<float> kMiddle = {.x = grid_.kColMidPt, .y = grid_.kRowMidPt};
 
-  void Print() { grid_.PrintToSerial(); }
+  void Print() { grid_.Print(); }
 
 private:
   float background_temp_;

@@ -8,14 +8,9 @@
 #include <cmath>
 #endif // GMOCK_FLAG
 
-//////////////////////////////////////////////////
-//  LIBRARIES  //
-//////////////////////////////////////////////////
-#include "bitmask_set.h"
+#include "logger.h"
 #include "point.h"
-#include "ring_buffer_queue.h"
 #include "turret.h"
-#include "turret_math.h"
 #include <Arduino.h>
 #include <IRremote.hpp>
 
@@ -41,36 +36,28 @@
 #define star 0x16
 #define hashtag 0xD
 
-/*
- * TODO
- * *   class for the PID math
- * *   class for the heat sensor, consilidate work on that data source,
- *     including finding the heat center, finding the highest value, thresholds,
- *     grid index (float) to angle, etc.
- * *   class for debug logging. perhaps include levels? Ability to write to
- *     serial and control with flags and env vars.
- */
-
 namespace turret {
 
-ContinuousServo yawServo(kYawServoPin, kYawDeadband);
-FixedRangeServo pitchServo(kPitchServoPin, kPitchInit, kPitchMin, kPitchMax);
-ContinuousServo rollServo(kRollServoPin);
+ContinuousServo yaw_servo(kYawServoPin, kYawDeadband);
+FixedRangeServo pitch_servo(kPitchServoPin, kPitchInit, kPitchMin, kPitchMax);
+ContinuousServo roll_servo(kRollServoPin);
 HeatSensor heat_sensor(kBackgroundTemp, kTempThreashold, kSensorFov);
 Pid<float> yaw_pid(kYawKs);
 Pid<float> pitch_pid(kPitchKs);
+Logger Log(true);
 
 bool isTracking = true;
 uint64_t last_micros = 0;
 
 void Setup() {
   Serial.begin(9600);
+  Log.Init();
 
   last_micros = micros();
 
-  yawServo.Init();
-  pitchServo.Init(last_micros);
-  rollServo.Init();
+  yaw_servo.Init();
+  pitch_servo.Init(last_micros);
+  roll_servo.Init();
 
   heat_sensor.Init();
 
@@ -85,18 +72,18 @@ void UpMove() {}
 
 void DownMove() {}
 
-void Fire() { // function for firing a single dart
-  rollServo.SetSpeed(kStopSpeed + kRollSpeed); // start rotating the servo
-  delay(kRollPrecision); // time for approximately 60 degrees of rotation
-  rollServo.SetSpeed(kStopSpeed); // stop rotating the servo
-  delay(5);                       // delay for smoothness
+void Fire() {
+  roll_servo.SetSpeed(kStopSpeed + kRollSpeed);
+  delay(kRollPrecision);
+  roll_servo.SetSpeed(kStopSpeed);
+  delay(5);
 }
 
 void ToggleTracking() { isTracking = !isTracking; }
 
 void HandleCommand(int command) {
   if ((IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT)) {
-    Serial.println("DEBOUNCING REPEATED NUMBER - IGNORING INPUT");
+    Log.Log(kWarning, "DEBOUNCING REPEATED NUMBER - IGNORING INPUT");
     return;
   }
 
@@ -139,24 +126,9 @@ void HandleCommand(int command) {
 
   default:
     // Unknown command, do nothing
-    Serial.println("Command Read Failed or Unknown, Try Again");
+    Log.Log(kInfo, "Command Read Failed or Unknown, Try Again");
     break;
   }
-}
-
-float MapToServo(float value, float from_min, float from_max) {
-  float proportion = (value - from_min) / (from_max - from_min);
-  return kMaxNegativeSpeed +
-         (proportion * (kMaxPositiveSpeed - kMaxNegativeSpeed));
-}
-
-// The sensor is rotated 90 degrees clockwise. This function transforms the
-// error coordinates to match the turret's orientation. A point(x, y) in the
-// sensor's frame becomes (y, -x) in the turret's frame.
-void RotateError90Cw(Point<float> &error) {
-  float temp_x = error.x;
-  error.x = error.y;
-  error.y = -temp_x;
 }
 
 void Loop() {
@@ -178,11 +150,8 @@ void Loop() {
     float yaw_output = yaw_pid.Compute(current_error.x, dt);
     float pitch_output = pitch_pid.Compute(current_error.y, dt);
 
-    yaw_out = MapToServo(yaw_output, -kControlRange, kControlRange);
-    pitch_out = MapToServo(pitch_output, -kControlRange, kControlRange);
-    pitchServo.SetSpeed(pitch_out);
-    yawServo.SetSpeed(yaw_out);
-
+    yaw_servo.MapSetSpeed(yaw_output, -kControlRange, kControlRange);
+    pitch_servo.MapSetSpeed(pitch_output, -kControlRange, kControlRange);
   } else {
     if (IrReceiver.decode()) {
       int command = IrReceiver.decodedIRData.command;
@@ -190,7 +159,7 @@ void Loop() {
       HandleCommand(command);
     }
   }
-  pitchServo.Update(current_micros);
+  pitch_servo.Update(current_micros);
 }
 
 } // namespace turret

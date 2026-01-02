@@ -33,6 +33,12 @@ public:
   // Pass in micros() from the main loop
   void Update(uint64_t micros);
 
+  void MapSetSpeed(float value, float from_min, float from_max) {
+    float proportion = (value - from_min) / (from_max - from_min);
+    SetSpeed(kMaxNegativeSpeed +
+             (proportion * (kMaxPositiveSpeed - kMaxNegativeSpeed)));
+  }
+
   int MinAngle() { return min_angle_; }
   int MaxAngle() { return max_angle_; }
 

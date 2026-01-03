@@ -9,13 +9,18 @@
 
 namespace turret {
 
+constexpr float kSensorFovX = 60.0;
+constexpr float kSensorFovY = 60.0;
+
 class HeatSensor {
 public:
-  HeatSensor(float background_temp, float temp_threshold, float sensor_fov_x,
-             float sensor_fov_y)
-      : background_temp_(background_temp), temp_threshold_(temp_threshold),
-        grid_to_angle_{.x = sensor_fov_x / grid_.kCols,
-                       .y = sensor_fov_y / grid_.kRows} {}
+  HeatSensor(float background_temp, float seed_temp_threshold,
+             float search_temp_threshold, float alpha)
+      : background_temp_(background_temp),
+        seed_temp_threshold_(seed_temp_threshold),
+        search_temp_threshold_(search_temp_threshold), alpha_(alpha),
+        grid_to_angle_{.x = kSensorFovX / grid_.kCols,
+                       .y = kSensorFovY / grid_.kRows} {}
 
   void Init() {
     bool status = sensor_.begin();
@@ -26,7 +31,7 @@ public:
 
   void Read() { sensor_.readPixels(grid_.data()); }
 
-  Point<float> FindHeatCenter();
+  Point<float> FindHeatCenter(Point<float> last_center);
 
   int size() { return AMG88xx_PIXEL_ARRAY_SIZE; }
 
@@ -35,9 +40,11 @@ public:
   void Print() { grid_.Print(); }
 
 private:
-  float background_temp_;
-  float temp_threshold_;
   const Point<float> grid_to_angle_;
+  float background_temp_;
+  float seed_temp_threshold_;
+  float search_temp_threshold_;
+  float alpha_;
 
   Adafruit_AMG88xx sensor_;
   Grid2d<float, int, /*W=*/8, /*H=*/8> grid_;

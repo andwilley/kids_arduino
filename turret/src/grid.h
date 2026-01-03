@@ -62,6 +62,18 @@ public:
     return static_cast<size_t>(p.y) * kCols + static_cast<size_t>(p.x);
   }
 
+  Point<C> MaxPoint() {
+    size_t max_i = 0;
+    T max = data_[max_i];
+    for (int i = 1; i < kSize; ++i) {
+      if (data_[i] > max) {
+        max = data_[i];
+        max_i = i;
+      }
+    }
+    return PointFrom(max_i);
+  }
+
   T *data() { return data_; }
   const T *data() const { return data_; }
 
@@ -89,7 +101,7 @@ public:
   }
 
 private:
-  T data_[kSize];
+  T data_[kSize]{};
 
   const Point<int> dirs[8] = {{0, -1}, {1, -1}, {1, 0},  {1, 1},
                               {0, 1},  {-1, 1}, {-1, 0}, {-1, -1}};

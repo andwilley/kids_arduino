@@ -38,13 +38,16 @@
 
 namespace turret {
 
+// TODO: move these to movement, and expose from there
 ContinuousServo yaw_servo(kYawServoPin, kYawDeadband);
 FixedRangeServo pitch_servo(kPitchServoPin, kPitchInit, kPitchMin, kPitchMax);
 ContinuousServo roll_servo(kRollServoPin);
-HeatSensor heat_sensor(kBackgroundTemp, kTempThreashold, kSensorFov);
+
+HeatSensor heat_sensor(kBackgroundTemp, kTempThreashold, kSensorFovX,
+                       kSensorFovY);
 Pid<float> yaw_pid(kYawKs);
 Pid<float> pitch_pid(kPitchKs);
-Logger Log(true);
+Logger Log(kDebug);
 
 bool isTracking = true;
 uint64_t last_micros = 0;
@@ -81,6 +84,7 @@ void Fire() {
 
 void ToggleTracking() { isTracking = !isTracking; }
 
+// TODO: move this to remote.h
 void HandleCommand(int command) {
   if ((IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT)) {
     Log.Log(kWarning, "DEBOUNCING REPEATED NUMBER - IGNORING INPUT");
@@ -132,9 +136,6 @@ void HandleCommand(int command) {
 }
 
 void Loop() {
-  Point<float> current_error = {0.0, 0.0};
-  float yaw_out = 0.0;
-  float pitch_out = 0.0;
   uint64_t current_micros = micros();
   uint64_t dt = current_micros - last_micros;
   last_micros = current_micros;
@@ -142,7 +143,7 @@ void Loop() {
   if (isTracking) {
     heat_sensor.Read();
 
-    current_error = heat_sensor.FindHeatCenter();
+    Point<float> current_error = heat_sensor.FindHeatCenter();
     current_error =
         current_error.ApplyTolerance(kErrorToleranceX, kErrorToleranceY);
     RotateError90Cw(current_error);

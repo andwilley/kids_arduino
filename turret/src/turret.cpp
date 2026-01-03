@@ -43,8 +43,8 @@ ContinuousServo yaw_servo(kYawServoPin, kYawDeadband);
 FixedRangeServo pitch_servo(kPitchServoPin, kPitchInit, kPitchMin, kPitchMax);
 ContinuousServo roll_servo(kRollServoPin);
 
-HeatSensor heat_sensor(kBackgroundTemp, kTempThreashold, kSensorFovX,
-                       kSensorFovY);
+HeatSensor heat_sensor(kBackgroundTemp, kSeedTempThreshold,
+                       kSearchTempThreshold, kAlpha);
 Pid<float> yaw_pid(kYawKs);
 Pid<float> pitch_pid(kPitchKs);
 Logger Log(kDebug);
@@ -143,9 +143,8 @@ void Loop() {
   if (isTracking) {
     heat_sensor.Read();
 
-    Point<float> current_error = heat_sensor.FindHeatCenter();
-    current_error =
-        current_error.ApplyTolerance(kErrorToleranceX, kErrorToleranceY);
+    Point<float> current_error = heat_sensor.FindHeatCenter(Point<float>{
+        .x = yaw_pid.GetLastError(), .y = pitch_pid.GetLastError()});
     RotateError90Cw(current_error);
 
     float yaw_output = yaw_pid.Compute(current_error.x, dt);

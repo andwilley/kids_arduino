@@ -13,7 +13,7 @@ template <typename T> class Pid {
 public:
   Pid(Ks ks) : kP_(ks.p), kI_(ks.i), kD_(ks.d) {}
 
-  T Compute(T error, uint64_t dt_micros);
+  T Compute(const T error, const uint64_t dt_micros);
 
   void Reset() {
     integral_ = T();
@@ -27,6 +27,8 @@ public:
     kD_ = kD;
   }
 
+  T GetLastError() { return last_error_; }
+
 private:
   static constexpr double kMicrosPerSecond = 1000000.0;
 
@@ -35,12 +37,13 @@ private:
   float kD_;
 
   // Accumulation of the area under the error curve
-  T integral_;
+  T integral_ = T();
   // For an "intantaneous" difference between the last step and this one.
-  T last_error_;
+  T last_error_ = T();
 };
 
-template <typename T> T Pid<T>::Compute(T error, uint64_t dt_micros) {
+template <typename T>
+T Pid<T>::Compute(const T error, const uint64_t dt_micros) {
   if (dt_micros == 0) {
     return T();
   }

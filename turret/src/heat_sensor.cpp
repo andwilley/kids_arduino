@@ -4,28 +4,18 @@
 
 namespace turret {
 
-Point<float> HeatSensor::FindHeatCenter() {
+Point<float> HeatSensor::FindHeatCenter(Point<float> last_center) {
   visited_.Clear();
   q_.Clear();
 
-  // Get the index with the highest temp
-  int max_i = 0;
-  float max = background_temp_;
-  float current = 0.0;
-  for (int i = 0; i < grid_.kSize; ++i) {
-    current = grid_.data()[i];
-    if (current > background_temp_ + temp_threshold_ && current > max) {
-      max_i = i;
-      max = current;
-    }
-  }
+  const Point<int> max_point = grid_.MaxPoint();
+  float max_temp = grid_.At(max_point);
+  size_t max_i = grid_.IndexOf(max_point);
 
-  // No temps above threshold
-  if (max == background_temp_) {
+  if (max_temp < background_temp_ + seed_temp_threshold_) {
     return ToSensorAngle(kMiddle);
   }
 
-  // BFS
   q_.Enqueue(grid_.PointFrom(max_i));
 
   visited_.Set(max_i);
@@ -36,10 +26,8 @@ Point<float> HeatSensor::FindHeatCenter() {
 
   while (!q_.Empty()) {
     Point<int> current = q_.Dequeue();
-    if (!grid_.InBounds(current)) {
-      return ToSensorAngle(kMiddle);
-    }
-    float cur_temp = grid_.At(current);
+    // Point comes from grid method
+    const float cur_temp = grid_.At(current);
 
     // Sums for weighted average
     x_total += cur_temp * current.x;
@@ -51,7 +39,7 @@ Point<float> HeatSensor::FindHeatCenter() {
       float neighbor_temp = grid_.At(neighbor);
       size_t neighbor_idx = grid_.IndexOf(neighbor);
       if (!visited_.Contains(neighbor_idx) &&
-          neighbor_temp > background_temp_ + temp_threshold_) {
+          neighbor_temp > background_temp_ + search_temp_threshold_) {
         visited_.Set(neighbor_idx);
         q_.Enqueue(neighbor);
       }
@@ -62,8 +50,10 @@ Point<float> HeatSensor::FindHeatCenter() {
     return ToSensorAngle(kMiddle);
   }
 
-  return {
-      ToSensorAngle({.x = x_total / temp_total, .y = y_total / temp_total})};
+  const Point<float> center =
+      ToSensorAngle({.x = x_total / temp_total, .y = y_total / temp_total});
+
+  return last_center + (center - last_center) * alpha_;
 }
 
 } // namespace turret

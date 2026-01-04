@@ -13,7 +13,7 @@ template <typename T> class Pid {
 public:
   Pid(Ks ks) : kP_(ks.p), kI_(ks.i), kD_(ks.d) {}
 
-  T Compute(const T error, const uint64_t dt_micros);
+  T Compute(T error, uint64_t dt_micros);
 
   void Reset() {
     integral_ = T();
@@ -43,7 +43,7 @@ private:
 };
 
 template <typename T>
-T Pid<T>::Compute(const T error, const uint64_t dt_micros) {
+T Pid<T>::Compute(T error, uint64_t dt_micros) {
   if (dt_micros == 0) {
     return T();
   }

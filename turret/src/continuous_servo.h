@@ -19,8 +19,9 @@ public:
 
   void SetSpeed(int input_value);
 
-  void MapSetSpeed(float value, float from_min, float from_max) {
-    float proportion = (value - from_min) / (from_max - from_min);
+  void MapSetSpeed(float value, float from_min,
+                   float from_max) {
+    const float proportion = (value - from_min) / (from_max - from_min);
     SetSpeed(kMaxNegativeSpeed +
              (proportion * (kMaxPositiveSpeed - kMaxNegativeSpeed)));
   }

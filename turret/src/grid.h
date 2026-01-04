@@ -9,7 +9,7 @@ namespace turret {
 
 template <typename C> class NeighborList {
 public:
-  void push_back(Point<C> p) {
+  void push_back(const Point<C> p) {
     if (count_ < 8) {
       points_[count_] = p;
       ++count_;
@@ -25,22 +25,15 @@ private:
   uint8_t count_ = 0;
 };
 
-// TODO: evaluate if these are needed first:
-// - index to point
-// - point to index
-// - get neighbors (from an index? from a point?)
 template <typename T, typename C, size_t W, size_t H> class Grid2d {
 public:
   static constexpr size_t kRows = H;
   static constexpr size_t kCols = W;
   static constexpr size_t kSize = W * H;
-  static constexpr float kRowMidPt = (kRows - 1) / 2.0f;
-  static constexpr float kColMidPt = (kCols - 1) / 2.0f;
+  static constexpr Point<float> kMidPt = {.x = (kCols - 1) / 2.0f,
+                                          .y = (kRows - 1) / 2.0f};
 
   Grid2d() {}
-
-  // Caller must verify point is in bounds.
-  T &At(const Point<C> &p) { return data_[IndexOf(p)]; }
 
   // Caller must verify point is in bounds.
   const T &At(const Point<C> &p) const { return data_[IndexOf(p)]; }
@@ -79,26 +72,7 @@ public:
 
   NeighborList<C> Neighbors(Point<C> center);
 
-  void Print() {
-    char line_buffer[Log.kEffectiveLogLength];
-    for (size_t h = 0; h < kRows; ++h) {
-      size_t offset = 0;
-      for (size_t w = 0; w < kCols; ++w) {
-        size_t remaining = sizeof(line_buffer) - offset;
-        if (remaining < 8) {
-          break;
-        }
-        int written = snprintf(line_buffer + offset, remaining, "%.1f, ",
-                               data_[h * kCols + w]);
-        if (written < 0 || (size_t)written >= remaining) {
-          break;
-        }
-
-        offset += written;
-      }
-      Log.Log(kInfo, "[%s]", line_buffer);
-    }
-  }
+  void Print() const;
 
 private:
   T data_[kSize]{};
@@ -106,6 +80,28 @@ private:
   const Point<int> dirs[8] = {{0, -1}, {1, -1}, {1, 0},  {1, 1},
                               {0, 1},  {-1, 1}, {-1, 0}, {-1, -1}};
 };
+
+template <typename T, typename C, size_t W, size_t H>
+void Grid2d<T, C, W, H>::Print() const {
+  char line_buffer[Log.kEffectiveLogLength];
+  for (size_t h = 0; h < kRows; ++h) {
+    size_t offset = 0;
+    for (size_t w = 0; w < kCols; ++w) {
+      size_t remaining = sizeof(line_buffer) - offset;
+      if (remaining < 8) {
+        break;
+      }
+      int written = snprintf(line_buffer + offset, remaining, "%.1f, ",
+                             data_[h * kCols + w]);
+      if (written < 0 || (size_t)written >= remaining) {
+        break;
+      }
+
+      offset += written;
+    }
+    Log.Log(kInfo, "[%s]", line_buffer);
+  }
+}
 
 template <typename T, typename C, size_t W, size_t H>
 NeighborList<C> Grid2d<T, C, W, H>::Neighbors(Point<C> center) {

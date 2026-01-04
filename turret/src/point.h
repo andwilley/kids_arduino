@@ -7,53 +7,56 @@ template <typename T> struct Point {
   T x;
   T y;
 
-  Point operator+(const Point &rhs) const {
-    return {.x = x + rhs.x, .y = y + rhs.y};
-  }
-  Point operator+(const T &rhs) const { return {.x = x + rhs, .y = y + rhs}; }
-  Point operator-(const Point &rhs) const {
-    return {.x = x - rhs.x, .y = y - rhs.y};
-  }
-  Point operator-(const T &rhs) const { return {.x = x - rhs, .y = y - rhs}; }
-  Point operator*(const T &rhs) const { return {.x = x * rhs, .y = y * rhs}; }
-  Point operator*(const Point &rhs) const {
-    return {.x = x * rhs.x, .y = y * rhs.y};
-  }
-  Point operator/(const T &rhs) const { return {.x = x / rhs, .y = y / rhs}; }
-  void operator+=(const Point &rhs) {
-    x += rhs.x;
-    y += rhs.y;
-  }
-  void operator-=(const Point &rhs) {
-    x -= rhs.x;
-    y -= rhs.y;
-  }
+  Point operator+(const Point &rhs) const;
+  Point operator+(const T &rhs) const;
+  Point operator-(const Point &rhs) const;
+  Point operator-(const T &rhs) const;
+  Point operator*(const T &rhs) const;
+  Point operator*(const Point &rhs) const;
+  Point operator/(const T &rhs) const;
 
-  bool operator==(const Point &rhs) const { return x == rhs.x && y == rhs.y; }
-  bool operator!=(const Point &rhs) const { return x != rhs.x || y != rhs.y; }
+  void operator+=(const Point &rhs);
+  void operator-=(const Point &rhs);
 
-  Point ApplyTolerance(T xTolerance, T yTolerance) const;
+  bool operator==(const Point &rhs) const;
+  bool operator!=(const Point &rhs) const;
 };
 
-template <typename T>
-Point<T> Point<T>::ApplyTolerance(T xTolerance, T yTolerance) const {
-  if (abs(x) > xTolerance && abs(y) > yTolerance) {
-    return *this;
-  }
+template <typename T> Point<T> Point<T>::operator+(const Point &rhs) const {
+  return {.x = x + rhs.x, .y = y + rhs.y};
+}
+template <typename T> Point<T> Point<T>::operator+(const T &rhs) const {
+  return {.x = x + rhs, .y = y + rhs};
+}
+template <typename T> Point<T> Point<T>::operator-(const Point &rhs) const {
+  return {.x = x - rhs.x, .y = y - rhs.y};
+}
+template <typename T> Point<T> Point<T>::operator-(const T &rhs) const {
+  return {.x = x - rhs, .y = y - rhs};
+}
+template <typename T> Point<T> Point<T>::operator*(const T &rhs) const {
+  return {.x = x * rhs, .y = y * rhs};
+}
+template <typename T> Point<T> Point<T>::operator*(const Point &rhs) const {
+  return {.x = x * rhs.x, .y = y * rhs.y};
+}
+template <typename T> Point<T> Point<T>::operator/(const T &rhs) const {
+  return {.x = x / rhs, .y = y / rhs};
+}
+template <typename T> void Point<T>::operator+=(const Point<T> &rhs) {
+  x += rhs.x;
+  y += rhs.y;
+}
+template <typename T> void Point<T>::operator-=(const Point<T> &rhs) {
+  x -= rhs.x;
+  y -= rhs.y;
+}
 
-  T adjusted_x = x;
-  T adjusted_y = y;
-
-  if (abs(x) < xTolerance) {
-    adjusted_x = T(0);
-  }
-  if (abs(y) < yTolerance) {
-    adjusted_y = T(0);
-  }
-  return {
-      .x = adjusted_x,
-      .y = adjusted_y,
-  };
+template <typename T> bool Point<T>::operator==(const Point<T> &rhs) const {
+  return x == rhs.x && y == rhs.y;
+}
+template <typename T> bool Point<T>::operator!=(const Point<T> &rhs) const {
+  return !this == rhs;
 }
 
 } // namespace turret

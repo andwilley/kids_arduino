@@ -6,13 +6,13 @@
 namespace turret {
 
 void FixedRangeServo::SetSpeed(float input_value) {
-  float clamped_input =
+  const float clamped_input =
       Clamp(input_value, static_cast<float>(kMaxNegativeSpeed),
             static_cast<float>(kMaxPositiveSpeed));
 
   // Map [0..180] to [-MaxSpeed..+MaxSpeed]
   // (Input - 90) / 90 gives range -1.0 to 1.0
-  float normalized_speed = (clamped_input - static_cast<float>(kStopSpeed)) /
+  const float normalized_speed = (clamped_input - static_cast<float>(kStopSpeed)) /
                            static_cast<float>(kStopSpeed);
 
   velocity_ = normalized_speed * max_degrees_per_second_;

@@ -11,8 +11,9 @@ constexpr double kMaxDeltaT = 0.1;
 
 class FixedRangeServo {
 public:
-  FixedRangeServo(int pin, float initial_angle, int min_angle = 0,
-                  int max_angle = 180, float max_degrees_per_second = 60.0)
+  FixedRangeServo(int pin, float initial_angle,
+                  int min_angle = 0, int max_angle = 180,
+                  float max_degrees_per_second = 60.0)
       : pin_(pin), current_angle_(initial_angle), min_angle_(min_angle),
         max_angle_(max_angle), max_degrees_per_second_(max_degrees_per_second) {
   }
@@ -33,14 +34,15 @@ public:
   // Pass in micros() from the main loop
   void Update(uint64_t micros);
 
-  void MapSetSpeed(float value, float from_min, float from_max) {
-    float proportion = (value - from_min) / (from_max - from_min);
+  void MapSetSpeed(float value, float from_min,
+                   float from_max) {
+    const float proportion = (value - from_min) / (from_max - from_min);
     SetSpeed(kMaxNegativeSpeed +
              (proportion * (kMaxPositiveSpeed - kMaxNegativeSpeed)));
   }
 
-  int MinAngle() { return min_angle_; }
-  int MaxAngle() { return max_angle_; }
+  int MinAngle() const { return min_angle_; }
+  int MaxAngle() const { return max_angle_; }
 
 private:
   int pin_;

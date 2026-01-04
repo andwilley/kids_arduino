@@ -2,6 +2,7 @@
 #include "fixed_range_servo.h"
 #include "heat_sensor.h"
 #include "pid.h"
+#include "remote.h"
 #include "servo_constants.h"
 #ifdef GMOCK_FLAG
 #include "Arduino.h"
@@ -12,29 +13,6 @@
 #include "point.h"
 #include "turret.h"
 #include <Arduino.h>
-#include <IRremote.hpp>
-
-// IR transmission type
-#define DECODE_NEC
-
-// IR remote command codes
-#define left 0x8
-#define right 0x5A
-#define up 0x52
-#define down 0x18
-#define ok 0x1C
-#define cmd1 0x45
-#define cmd2 0x46
-#define cmd3 0x47
-#define cmd4 0x44
-#define cmd5 0x40
-#define cmd6 0x43
-#define cmd7 0x7
-#define cmd8 0x15
-#define cmd9 0x9
-#define cmd0 0x19
-#define star 0x16
-#define hashtag 0xD
 
 namespace turret {
 
@@ -56,6 +34,8 @@ void Setup() {
   Serial.begin(9600);
   Log.Init();
 
+  remote::Remote::Instance().Init();
+
   last_micros = micros();
 
   yaw_servo.Init();
@@ -63,8 +43,6 @@ void Setup() {
   roll_servo.Init();
 
   heat_sensor.Init();
-
-  IrReceiver.begin(5, ENABLE_LED_FEEDBACK);
 }
 
 void LeftMove() {}

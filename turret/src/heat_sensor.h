@@ -23,7 +23,7 @@ public:
                        .y = kSensorFovY / grid_.kRows} {}
 
   void Init() {
-    bool status = sensor_.begin();
+    const bool status = sensor_.begin();
     if (!status) {
       Log.Log(kWarning, "Could not find a valid AMG88xx sensor, check wiring!");
     }
@@ -31,16 +31,16 @@ public:
 
   void Read() { sensor_.readPixels(grid_.data()); }
 
-  Point<float> FindHeatCenter(Point<float> last_center);
+  Point<float> FindHeatCenter(const Point<float> &last_center);
 
-  int size() { return AMG88xx_PIXEL_ARRAY_SIZE; }
+  int size() const { return AMG88xx_PIXEL_ARRAY_SIZE; }
 
-  const Point<float> kMiddle = {.x = grid_.kColMidPt, .y = grid_.kRowMidPt};
+  const Point<float> kMiddle = {.x = 0.0, .y = 0.0};
 
-  void Print() { grid_.Print(); }
+  void Print() const { grid_.Print(); }
 
 private:
-  const Point<float> grid_to_angle_;
+  Point<float> grid_to_angle_;
   float background_temp_;
   float seed_temp_threshold_;
   float search_temp_threshold_;
@@ -52,9 +52,8 @@ private:
   RingBufferQueue<Point<int>, AMG88xx_PIXEL_ARRAY_SIZE> q_;
 
   // Convert an error in grid space to real world sensor space.
-  Point<float> ToSensorAngle(Point<float> grid_error) {
-    Point<float> norm =
-        grid_error - Point<float>{.x = grid_.kColMidPt, .y = grid_.kRowMidPt};
+  Point<float> ToSensorAngle(const Point<float> &grid_error) {
+    Point<float> norm = grid_error - grid_.kMidPt;
     return norm * grid_to_angle_;
   }
 };

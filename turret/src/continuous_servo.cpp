@@ -1,5 +1,5 @@
-#include "servo_constants.h"
 #include "continuous_servo.h"
+#include "servo_constants.h"
 
 namespace turret {
 

@@ -4,7 +4,7 @@
 
 namespace turret {
 
-Point<float> HeatSensor::FindHeatCenter(Point<float> last_center) {
+Point<float> HeatSensor::FindHeatCenter(const Point<float> &last_center) {
   visited_.Clear();
   q_.Clear();
 
@@ -13,7 +13,7 @@ Point<float> HeatSensor::FindHeatCenter(Point<float> last_center) {
   size_t max_i = grid_.IndexOf(max_point);
 
   if (max_temp < background_temp_ + seed_temp_threshold_) {
-    return ToSensorAngle(kMiddle);
+    return kMiddle;
   }
 
   q_.Enqueue(grid_.PointFrom(max_i));
@@ -23,9 +23,8 @@ Point<float> HeatSensor::FindHeatCenter(Point<float> last_center) {
   float x_total = 0;
   float y_total = 0;
   float temp_total = 0;
-
-  while (!q_.Empty()) {
-    Point<int> current = q_.Dequeue();
+  Point<int> current;
+  while (q_.PopFront(current)) {
     // Point comes from grid method
     const float cur_temp = grid_.At(current);
 
@@ -36,8 +35,8 @@ Point<float> HeatSensor::FindHeatCenter(Point<float> last_center) {
 
     for (const auto &neighbor : grid_.Neighbors(current)) {
       // Neighbors() checks bounds
-      float neighbor_temp = grid_.At(neighbor);
-      size_t neighbor_idx = grid_.IndexOf(neighbor);
+      const float neighbor_temp = grid_.At(neighbor);
+      const size_t neighbor_idx = grid_.IndexOf(neighbor);
       if (!visited_.Contains(neighbor_idx) &&
           neighbor_temp > background_temp_ + search_temp_threshold_) {
         visited_.Set(neighbor_idx);
@@ -47,7 +46,7 @@ Point<float> HeatSensor::FindHeatCenter(Point<float> last_center) {
   }
 
   if (temp_total == 0) {
-    return ToSensorAngle(kMiddle);
+    return kMiddle;
   }
 
   const Point<float> center =

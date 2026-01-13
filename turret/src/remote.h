@@ -62,7 +62,7 @@ public:
   // Add new code to the ring buffer. For each handler, check the last timeout
   // T. If less than T micros have passed since the last command or if T is none
   // undefined
-  void DoRemote();
+  void DoRemote(uint64_t current_micros);
 
 private:
   Remote() {}

@@ -1,10 +1,10 @@
-#ifndef TURRET_MATH_H_
-#define TURRET_MATH_H_
+#ifndef MATH_H_
+#define MATH_H_
 
 #include "point.h"
 #include <cstddef>
 
-namespace turret {
+namespace math {
 
 template <typename T> T Clamp(T val, T min, T max) {
   if (val < min) {
@@ -19,12 +19,12 @@ template <typename T> T Clamp(T val, T min, T max) {
 // The sensor is rotated 90 degrees clockwise. This function transforms the
 // error coordinates to match the turret's orientation. A point(x, y) in the
 // sensor's frame becomes (y, -x) in the turret's frame.
-template <typename T> void RotateError90Cw(Point<T> &error) {
+template <typename T> void RotateError90Cw(geometry::Point<T> &error) {
   float temp_x = error.x;
   error.x = error.y;
   error.y = -temp_x;
 }
 
-} // namespace turret
+} // namespace math
 
-#endif // TURRET_MATH_H_
+#endif // MATH_H_

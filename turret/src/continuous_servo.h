@@ -1,11 +1,11 @@
-#ifndef TURRET_CONTINUOUS_SERVO_H_
-#define TURRET_CONTINUOUS_SERVO_H_
+#ifndef CONTINUOUS_SERVO_H_
+#define CONTINUOUS_SERVO_H_
 
+#include "math.h"
 #include "servo_constants.h"
-#include "turret_math.h"
 #include <ESP32Servo.h>
 
-namespace turret {
+namespace servos {
 
 class ContinuousServo {
 public:
@@ -19,8 +19,7 @@ public:
 
   void SetSpeed(int input_value);
 
-  void MapSetSpeed(float value, float from_min,
-                   float from_max) {
+  void MapSetSpeed(float value, float from_min, float from_max) {
     const float proportion = (value - from_min) / (from_max - from_min);
     SetSpeed(kMaxNegativeSpeed +
              (proportion * (kMaxPositiveSpeed - kMaxNegativeSpeed)));
@@ -34,11 +33,11 @@ private:
   Servo servo_;
 
   void Write(int value) {
-    current_value_ = Clamp(value, kMaxNegativeSpeed, kMaxPositiveSpeed);
+    current_value_ = math::Clamp(value, kMaxNegativeSpeed, kMaxPositiveSpeed);
     servo_.write(current_value_);
   }
 };
 
-} // namespace turret
+} // namespace servos
 
-#endif // TURRET_CONTINUOUS_SERVO_H_
+#endif // CONTINUOUS_SERVO_H_

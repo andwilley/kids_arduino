@@ -4,8 +4,10 @@
 
 namespace remote {
 
+void Remote::Init() { IrReceiver.begin(pin_, ENABLE_LED_FEEDBACK); }
+
 int Remote::RegisterHandler(
-    std::function<uint32_t(uint64_t *, size_t)> handler) {
+    std::function<int64_t(uint16_t *, size_t)> handler) {
   if (registrations_ == kMaxRegistrations - 1) {
     return -1;
   }

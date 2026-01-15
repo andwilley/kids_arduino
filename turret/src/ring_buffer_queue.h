@@ -1,10 +1,10 @@
-#ifndef TURRET_RING_BUFFER_QUEUE_H_
-#define TURRET_RING_BUFFER_QUEUE_H_
+#ifndef RING_BUFFER_QUEUE_H_
+#define RING_BUFFER_QUEUE_H_
 
 #include <cstring>
 #include <stddef.h>
 
-namespace turret {
+namespace ring_buffer_queue {
 
 // A ring buffer queue. If Enqueue is used when the queue if full, data will be
 // overwritten.
@@ -92,6 +92,6 @@ template <typename T, size_t S> bool RingBufferQueue<T, S>::Full() const {
   return count_ == S;
 }
 
-} // namespace turret
+} // namespace ring_buffer_queue
 
-#endif // TURRET_RING_BUFFER_QUEUE_H_
+#endif // RING_BUFFER_QUEUE_H_

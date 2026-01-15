@@ -4,7 +4,10 @@
 #include <LittleFS.h>
 #include <cstring>
 
-namespace turret {
+namespace logger {
+
+// Global logger instance definition (declared as extern in logger.h)
+Logger Log;
 
 void Logger::Init() {
   if (!LittleFS.begin()) {
@@ -73,4 +76,10 @@ void Logger::Log(LogLevel level, const char *format, ...) {
   xQueueSend(queue_, &buffer, 0);
 }
 
-} // namespace turret
+void Logger::ClearLogs() {
+  if (LittleFS.remove("/log.txt")) {
+    Log(kInfo, "Log file cleared");
+  }
+}
+
+} // namespace logger

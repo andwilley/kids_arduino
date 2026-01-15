@@ -1,7 +1,7 @@
-#ifndef TURRET_POINT_H_
-#define TURRET_POINT_H_
+#ifndef POINT_H_
+#define POINT_H_
 
-namespace turret {
+namespace geometry {
 
 template <typename T> struct Point {
   T x;
@@ -59,6 +59,6 @@ template <typename T> bool Point<T>::operator!=(const Point<T> &rhs) const {
   return !this == rhs;
 }
 
-} // namespace turret
+} // namespace geometry
 
-#endif // TURRET_POINT_H_
+#endif // POINT_H_

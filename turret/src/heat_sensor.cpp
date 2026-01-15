@@ -2,13 +2,14 @@
 #include "point.h"
 #include <Adafruit_AMG88xx.h>
 
-namespace turret {
+namespace heat_sensor {
 
-Point<float> HeatSensor::FindHeatCenter(const Point<float> &last_center) {
+geometry::Point<float>
+HeatSensor::FindHeatCenter(const geometry::Point<float> &last_center) {
   visited_.Clear();
   q_.Clear();
 
-  const Point<int> max_point = grid_.MaxPoint();
+  const geometry::Point<int> max_point = grid_.MaxPoint();
   float max_temp = grid_.At(max_point);
   size_t max_i = grid_.IndexOf(max_point);
 
@@ -23,7 +24,7 @@ Point<float> HeatSensor::FindHeatCenter(const Point<float> &last_center) {
   float x_total = 0;
   float y_total = 0;
   float temp_total = 0;
-  Point<int> current;
+  geometry::Point<int> current;
   while (q_.PopFront(current)) {
     // Point comes from grid method
     const float cur_temp = grid_.At(current);
@@ -49,10 +50,10 @@ Point<float> HeatSensor::FindHeatCenter(const Point<float> &last_center) {
     return kMiddle;
   }
 
-  const Point<float> center =
+  const geometry::Point<float> center =
       ToSensorAngle({.x = x_total / temp_total, .y = y_total / temp_total});
 
   return last_center + (center - last_center) * alpha_;
 }
 
-} // namespace turret
+} // namespace heat_sensor

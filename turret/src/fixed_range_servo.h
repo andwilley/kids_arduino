@@ -1,19 +1,18 @@
-#ifndef TURRET_FIXED_RANGE_SERVO_H_
-#define TURRET_FIXED_RANGE_SERVO_H_
+#ifndef FIXED_RANGE_SERVO_H_
+#define FIXED_RANGE_SERVO_H_
 
+#include "math.h"
 #include "servo_constants.h"
-#include "turret_math.h"
 #include <ESP32Servo.h>
 
-namespace turret {
+namespace servos {
 
 constexpr double kMaxDeltaT = 0.1;
 
 class FixedRangeServo {
 public:
-  FixedRangeServo(int pin, float initial_angle,
-                  int min_angle = 0, int max_angle = 180,
-                  float max_degrees_per_second = 60.0)
+  FixedRangeServo(int pin, float initial_angle, int min_angle = 0,
+                  int max_angle = 180, float max_degrees_per_second = 60.0)
       : pin_(pin), current_angle_(initial_angle), min_angle_(min_angle),
         max_angle_(max_angle), max_degrees_per_second_(max_degrees_per_second) {
   }
@@ -34,8 +33,7 @@ public:
   // Pass in micros() from the main loop
   void Update(uint64_t micros);
 
-  void MapSetSpeed(float value, float from_min,
-                   float from_max) {
+  void MapSetSpeed(float value, float from_min, float from_max) {
     const float proportion = (value - from_min) / (from_max - from_min);
     SetSpeed(kMaxNegativeSpeed +
              (proportion * (kMaxPositiveSpeed - kMaxNegativeSpeed)));
@@ -57,13 +55,13 @@ private:
 
   void Write(float angle) {
     current_angle_ =
-        Clamp(static_cast<int>(round(angle)), min_angle_, max_angle_);
+        math::Clamp(static_cast<int>(round(angle)), min_angle_, max_angle_);
     servo_.write(current_angle_);
   }
 
   static constexpr double kMicrosPerSecond = 1000000.0;
 };
 
-} // namespace turret
+} // namespace servos
 
-#endif // TURRET_FIXED_RANGE_SERVO_H_
+#endif // FIXED_RANGE_SERVO_H_

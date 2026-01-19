@@ -1,7 +1,7 @@
 #include "continuous_servo.h"
 #include "servo_constants.h"
 
-namespace turret {
+namespace servos {
 
 void ContinuousServo::SetSpeed(int input_value) {
   if (input_value == kStopSpeed) {
@@ -17,4 +17,4 @@ void ContinuousServo::SetSpeed(int input_value) {
   Write(input_value + signed_dead_band);
 }
 
-} // namespace turret
+} // namespace servos

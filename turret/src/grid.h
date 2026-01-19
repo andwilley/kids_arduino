@@ -1,15 +1,15 @@
-#ifndef TURRET_GRID_H_
-#define TURRET_GRID_H_
+#ifndef GRID_H_
+#define GRID_H_
 
 #include "logger.h"
 #include "point.h"
 #include <stddef.h>
 
-namespace turret {
+namespace grid {
 
 template <typename C> class NeighborList {
 public:
-  void push_back(const Point<C> p) {
+  void push_back(const geometry::Point<C> p) {
     if (count_ < 8) {
       points_[count_] = p;
       ++count_;
@@ -17,11 +17,11 @@ public:
   }
 
   // Iterator support for range-based loops
-  const Point<C> *begin() const { return points_; }
-  const Point<C> *end() const { return points_ + count_; }
+  const geometry::Point<C> *begin() const { return points_; }
+  const geometry::Point<C> *end() const { return points_ + count_; }
 
 private:
-  Point<C> points_[8];
+  geometry::Point<C> points_[8];
   uint8_t count_ = 0;
 };
 
@@ -30,20 +30,20 @@ public:
   static constexpr size_t kRows = H;
   static constexpr size_t kCols = W;
   static constexpr size_t kSize = W * H;
-  static constexpr Point<float> kMidPt = {.x = (kCols - 1) / 2.0f,
-                                          .y = (kRows - 1) / 2.0f};
+  static constexpr geometry::Point<float> kMidPt = {.x = (kCols - 1) / 2.0f,
+                                                    .y = (kRows - 1) / 2.0f};
 
   Grid2d() {}
 
   // Caller must verify point is in bounds.
-  const T &At(const Point<C> &p) const { return data_[IndexOf(p)]; }
+  const T &At(const geometry::Point<C> &p) const { return data_[IndexOf(p)]; }
 
-  bool InBounds(const Point<C> &p) const {
+  bool InBounds(const geometry::Point<C> &p) const {
     return static_cast<size_t>(p.x) < W && static_cast<size_t>(p.y) < H;
   }
 
   // Caller must verify index is in bounds.
-  static Point<C> PointFrom(size_t index) {
+  static geometry::Point<C> PointFrom(size_t index) {
     return {
         .x = static_cast<C>(index % kCols),
         .y = static_cast<C>(index / kCols),
@@ -51,11 +51,11 @@ public:
   }
 
   // Caller must verify point is in bounds.
-  static size_t IndexOf(const Point<C> &p) {
+  static size_t IndexOf(const geometry::Point<C> &p) {
     return static_cast<size_t>(p.y) * kCols + static_cast<size_t>(p.x);
   }
 
-  Point<C> MaxPoint() {
+  geometry::Point<C> MaxPoint() {
     size_t max_i = 0;
     T max = data_[max_i];
     for (int i = 1; i < kSize; ++i) {
@@ -70,20 +70,20 @@ public:
   T *data() { return data_; }
   const T *data() const { return data_; }
 
-  NeighborList<C> Neighbors(Point<C> center);
+  NeighborList<C> Neighbors(geometry::Point<C> center);
 
   void Print() const;
 
 private:
   T data_[kSize]{};
 
-  const Point<int> dirs[8] = {{0, -1}, {1, -1}, {1, 0},  {1, 1},
-                              {0, 1},  {-1, 1}, {-1, 0}, {-1, -1}};
+  const geometry::Point<int> dirs[8] = {{0, -1}, {1, -1}, {1, 0},  {1, 1},
+                                        {0, 1},  {-1, 1}, {-1, 0}, {-1, -1}};
 };
 
 template <typename T, typename C, size_t W, size_t H>
 void Grid2d<T, C, W, H>::Print() const {
-  char line_buffer[Log.kEffectiveLogLength];
+  char line_buffer[logger::Log.kEffectiveLogLength];
   for (size_t h = 0; h < kRows; ++h) {
     size_t offset = 0;
     for (size_t w = 0; w < kCols; ++w) {
@@ -99,15 +99,15 @@ void Grid2d<T, C, W, H>::Print() const {
 
       offset += written;
     }
-    Log.Log(kInfo, "[%s]", line_buffer);
+    logger::Log.Log(logger::kInfo, "[%s]", line_buffer);
   }
 }
 
 template <typename T, typename C, size_t W, size_t H>
-NeighborList<C> Grid2d<T, C, W, H>::Neighbors(Point<C> center) {
+NeighborList<C> Grid2d<T, C, W, H>::Neighbors(geometry::Point<C> center) {
   NeighborList<C> list;
-  for (const Point<int> dir : dirs) {
-    Point<C> next = center + dir;
+  for (const geometry::Point<int> dir : dirs) {
+    geometry::Point<C> next = center + dir;
     if (InBounds(next)) {
       list.push_back(next);
     }
@@ -115,6 +115,6 @@ NeighborList<C> Grid2d<T, C, W, H>::Neighbors(Point<C> center) {
   return list;
 }
 
-} // namespace turret
+} // namespace grid
 
-#endif // TURRET_GRID_H_
+#endif // GRID_H_

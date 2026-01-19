@@ -1,11 +1,11 @@
-#ifndef TURRET_BITMASK_SET_H_
-#define TURRET_BITMASK_SET_H_
+#ifndef BITMASK_SET_H_
+#define BITMASK_SET_H_
 
 #include <cstring>
 #include <stddef.h>
 #include <stdint.h>
 
-namespace turret {
+namespace bitmask_set {
 
 template <size_t S> class BitmaskSet {
 public:
@@ -26,8 +26,7 @@ template <size_t S> bool BitmaskSet<S>::Contains(size_t index) const {
   return (mask_[index / 64] & 1ULL << (index % 64)) != 0;
 }
 
-template <size_t S>
-void BitmaskSet<S>::Set(size_t index, bool high) {
+template <size_t S> void BitmaskSet<S>::Set(size_t index, bool high) {
   if (index >= S) {
     return;
   }
@@ -39,6 +38,6 @@ void BitmaskSet<S>::Set(size_t index, bool high) {
   }
 }
 
-} // namespace turret
+} // namespace bitmask_set
 
-#endif // TURRET_BITMASK_SET_H_
+#endif // BITMASK_SET_H_

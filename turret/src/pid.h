@@ -1,7 +1,7 @@
-#ifndef TURRET_PID_H_
-#define TURRET_PID_H_
+#ifndef PID_H_
+#define PID_H_
 
-namespace turret {
+namespace pid {
 
 struct Ks {
   float p;
@@ -42,8 +42,7 @@ private:
   T last_error_ = T();
 };
 
-template <typename T>
-T Pid<T>::Compute(T error, uint64_t dt_micros) {
+template <typename T> T Pid<T>::Compute(T error, uint64_t dt_micros) {
   if (dt_micros == 0) {
     return T();
   }
@@ -67,6 +66,6 @@ T Pid<T>::Compute(T error, uint64_t dt_micros) {
   return p_term + i_term + d_term;
 }
 
-} // namespace turret
+} // namespace pid
 
-#endif // TURRET_PID_H_
+#endif // PID_H_

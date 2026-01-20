@@ -10,12 +10,14 @@
 #include <Arduino.h>
 
 namespace turret {
+namespace {
 
 remote::Remote remote(kIrReceiverPin);
 Movement mvmt(/*is_tracking=*/true);
 
 uint64_t last_micros = 0;
-int64_t HandleRemoteCommands(uint16_t *commands, size_t last_index) {
+int64_t HandleRemoteCommands(uint16_t *commands, size_t last_index,
+                             uint64_t current_micros) {
   uint16_t command = commands[0];
   switch (command) {
   case remote::kUp:
@@ -23,6 +25,7 @@ int64_t HandleRemoteCommands(uint16_t *commands, size_t last_index) {
       return -1;
     }
     mvmt.UpMove();
+    break;
   case remote::kDown:
     if (mvmt.IsTracking()) {
       return -1;
@@ -42,7 +45,7 @@ int64_t HandleRemoteCommands(uint16_t *commands, size_t last_index) {
     mvmt.RightMove();
     break;
   case remote::kOk:
-    mvmt.Fire();
+    mvmt.Fire(current_micros);
     break;
   case remote::kStar:
     mvmt.ToggleTracking();
@@ -53,6 +56,8 @@ int64_t HandleRemoteCommands(uint16_t *commands, size_t last_index) {
   }
   return -1;
 };
+
+} // namespace
 
 void Setup() {
   Serial.begin(9600);

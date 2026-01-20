@@ -52,7 +52,8 @@ public:
   // `handler` should return the micros after the current update that the
   // next update should be considered part of the same buffer. Returning -1 from
   // the handler uses the default.
-  int RegisterHandler(std::function<int64_t(uint16_t *, size_t)> handler);
+  int RegisterHandler(
+      std::function<int64_t(uint16_t *, size_t, uint64_t)> handler);
 
   // Add new code to the ring buffer. For each handler, check the last timeout
   // T. If less than T micros have passed since the last command or if T is none
@@ -74,13 +75,14 @@ private:
   // The timestamp at which the last command was received.
   uint64_t last_command_micros_ = 0;
   // Indexed by handler. The actual handler method to call.
-  std::function<int32_t(uint16_t *, size_t)> handlers_[kMaxRegistrations];
-  // Indexed by handler, value is the number of micors after the last command to
+  std::function<int32_t(uint16_t *, size_t, uint64_t)>
+      handlers_[kMaxRegistrations];
+  // Indexed by handler, value is the number of micros after the last command to
   // treat the next command as part of the same series.
-  int32_t next_command_timeout_[kMaxRegistrations]{-1};
+  int64_t next_command_timeout_[kMaxRegistrations]{-1};
   // The current number of registrations.
   int registrations_ = 0;
-  int32_t max_next_command_timeout_micros_ = 2000000;
+  int64_t max_next_command_timeout_micros_ = 2000000;
   // Ring buffer to track commands.
   ring_buffer_queue::RingBufferQueue<uint16_t, kCommandBufferSize> buffer_;
   // The N most recent IR commands. Trimmed if no handlers need the last

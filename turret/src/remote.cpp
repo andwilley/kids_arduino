@@ -7,7 +7,7 @@ namespace remote {
 void Remote::Init() { IrReceiver.begin(pin_, ENABLE_LED_FEEDBACK); }
 
 int Remote::RegisterHandler(
-    std::function<int64_t(uint16_t *, size_t)> handler) {
+    std::function<int64_t(uint16_t *, size_t, uint64_t)> handler) {
   if (registrations_ == kMaxRegistrations - 1) {
     return -1;
   }
@@ -17,8 +17,11 @@ int Remote::RegisterHandler(
 }
 
 void Remote::DoRemote(uint64_t current_micros) {
-  if (!IrReceiver.decode() ||
-      (IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT)) {
+  if (!IrReceiver.decode()) {
+    return;
+  }
+  if (IrReceiver.decodedIRData.flags & IRDATA_FLAGS_IS_REPEAT) {
+    IrReceiver.resume();
     return;
   }
 
@@ -27,14 +30,15 @@ void Remote::DoRemote(uint64_t current_micros) {
   size_t elems = buffer_.Stack(current_commands_);
   for (size_t handler_idx = 0; handler_idx < registrations_; ++handler_idx) {
     uint64_t command_micros = GetCommandDelay(handler_idx);
-    if (last_command_micros_ + command_micros > current_micros) {
+    if (current_micros > last_command_micros_ + command_micros) {
       command_depth_[handler_idx] = 0;
     } else {
       ++command_depth_[handler_idx];
     }
-    next_command_timeout_[handler_idx] =
-        handlers_[handler_idx](current_commands_, command_depth_[handler_idx]);
+    next_command_timeout_[handler_idx] = handlers_[handler_idx](
+        current_commands_, command_depth_[handler_idx], current_micros);
   }
+  last_command_micros_ = current_micros;
   IrReceiver.resume();
 }
 

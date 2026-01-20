@@ -1,4 +1,5 @@
 #include "movement.h"
+#include "logger.h"
 
 #include <Arduino.h>
 
@@ -23,12 +24,16 @@ void Movement::Track(uint64_t dt) {
 
 void Movement::Update(uint64_t current_micros) {
   pitch_servo_.Update(current_micros);
+  if (fire_state_ == Movement::kFiring && current_micros > stop_firing_) {
+    roll_servo_.SetSpeed(servos::kStopSpeed);
+    fire_state_ = Movement::kNotFiring;
+  }
 }
 
-void Movement::Fire() {
+void Movement::Fire(uint64_t current_micros) {
   roll_servo_.SetSpeed(servos::kStopSpeed + kRollSpeed);
-  delay(kRollPrecision);
-  roll_servo_.SetSpeed(servos::kStopSpeed);
+  fire_state_ = Movement::kFiring;
+  stop_firing_ = current_micros + kRollPrecision;
 }
 
 } // namespace turret

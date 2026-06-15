@@ -3,6 +3,7 @@
 
 #include <cstring>
 #include <stddef.h>
+#include <Arduino.h>
 
 namespace ring_buffer_queue {
 
@@ -46,7 +47,7 @@ size_t RingBufferQueue<T, S>::Stack(T *dest) const {
     return 0;
   }
 
-  size_t current_idx = (tail_ == 0) ? S - 1 : tail_ - 1;
+  size_t current_idx = Wrap(tail_ - 1);
 
   for (size_t i = 0; i < count_; ++i) {
     dest[i] = buffer_[current_idx];

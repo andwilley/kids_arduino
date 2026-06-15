@@ -42,16 +42,16 @@ constexpr pid::Ks kPitchKs = {
 // controller more sensitive.
 constexpr int kControlRange = 120;
 
-// time to activate the motor to fire, in millis
-constexpr int kRollPrecision = 400;
+// time to activate the motor to fire, in micros
+constexpr int kRollPrecision = 1000000;
 constexpr int kRollSpeed = 90;
 
 // TODO: Eventually find these dynamically on startup and re-eval periodically.
 // Temperature (C) considered "background", varies by time of year.
 constexpr float kBackgroundTemp = 21.1; // 70F
 // Degrees above "background" to consider for aquisition.
-constexpr float kSeedTempThreshold = 4.0;
-constexpr float kSearchTempThreshold = 2.0;
+constexpr float kSeedTempThreshold = 3.0;
+constexpr float kSearchTempThreshold = 1.0;
 
 // Handle movement definitions for the turret. Includes discete movements (up,
 // left, etc) as well as tracking with the heat sensor.
@@ -76,7 +76,7 @@ public:
 
   void DownMove() {}
 
-  void Fire();
+  void Fire(uint64_t current_micros);
 
   void ToggleTracking() { is_tracking_ = !is_tracking_; }
 
@@ -84,8 +84,15 @@ public:
 
   void Update(uint64_t current_micros);
 
+  enum FireState {
+    kFiring,
+    kNotFiring,
+  };
+
 private:
-  bool is_tracking_;
+  bool is_tracking_ = true;
+  FireState fire_state_ = kNotFiring;
+  uint64_t stop_firing_ = 0;
 
   servos::ContinuousServo yaw_servo_{kYawServoPin, kYawDeadband};
   servos::FixedRangeServo pitch_servo_{kPitchServoPin, kPitchInit, kPitchMin,
